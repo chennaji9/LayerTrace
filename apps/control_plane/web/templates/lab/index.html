@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}实验与回放 · 层迹{% endblock %}
+{% block content %}
+<h1>实验与回放</h1>
+<p class="muted">真实故障在业务虚拟机终端执行，页面用于观察与诊断。回放单独展示并标明来源。</p>
+{% if not lab_enabled %}
+<div class="panel" id="lab-disabled"><strong>实验通道未启用。</strong><p class="muted">当前环境模式：{{ mode }}。真实实验仅用于获授权的演示容器；CLI 检查 <code>layertrace.lab=true</code> 标签。仅有 <code>layertrace-test=true</code> 不赋予真实注入权限。</p></div>
+{% endif %}
+<div class="panel">
+  <h2>真实实验 · 在业务虚拟机终端执行</h2>
+  <p class="muted">先启动持续业务请求，再在另一终端执行实验命令。命令保存原配置、记录证据并自动恢复；最长 180 秒。</p>
+  <div class="scenario-card"><h3>① 容器进程中断</h3><p>停止承载 Agent 的测试容器，独立客户端记录任务失败。该场景不等同于内核 OOM。</p><pre class="mono">python3 -m scenarios.real_lab run process-failure --target layertrace-demo-agent --seconds 45 --output evidence/lab</pre></div>
+  <div class="scenario-card"><h3>② 模型计算资源瓶颈</h3><p>限制模型容器 CPU 配额，观察节流和业务延迟；同虚拟机正常容器作为对照。</p><pre class="mono">python3 -m scenarios.real_lab run cpu-quota --target layertrace-demo-model --cpus 0.10 --seconds 90 --output evidence/lab</pre></div>
+  <div class="scenario-card"><h3>③ 工具服务失败</h3><p>工具返回 HTTP 503，沿同一任务的工具失败与任务失败事件关联诊断。</p><pre class="mono">python3 -m scenarios.real_lab run tool-503 --target layertrace-demo-tool --seconds 45 --output evidence/lab</pre></div>
+  <details class="evidence"><summary>业务请求与独立恢复命令</summary>
+    <h3>正常业务与基线</h3><pre class="mono">docker compose --project-name layertrace-vm --env-file deploy/vm-probe/.env -f deploy/vm-probe/compose.yaml -f deploy/workload/compose.yaml run --rm demo-client python -m workloads.demo_agent.load_generator --count 35 --interval 1</pre>
+    <h3>单次请求（每次替换唯一任务 ID）</h3><pre class="mono">curl -s -X POST http://127.0.0.1:8091/tasks -H 'Content-Type: application/json' -d '{"task_id":"manual-UNIQUE","topic":"cpu"}'</pre>
+    <h3>独立恢复</h3><pre class="mono">python3 -m scenarios.real_lab restore --state evidence/lab/&lt;run_id&gt;/state.json</pre>
+    <p class="muted">自动恢复后，仍须发起成功业务请求并等待事件单恢复稳定窗口。采集停止不代表故障消失。</p>
+  </details>
+  <p><a class="button secondary" href="/pages/tasks">观察业务任务</a> <a class="button secondary" href="/pages/incidents">查看故障事件单</a></p>
+</div>
+<div class="panel" id="replay-panel">
+  <h2>回放演示 <span class="prov prov-replayed">回放</span></h2>
+  <p class="notice">以下入口加载已保存场景事实验证诊断规则，不会操作业务容器。GPU OOM 仅在此展示回放；未安装 GPU 的环境不宣称 GPU 实测。</p>
+  <div class="toolbar"><label>场景 <select id="replay-scenario"><option value="story-oom">容器 OOM 证据</option><option value="story-exit-137-not-oom">退出码 137 反例</option><option value="story-host-pressure">宿主资源压力</option><option value="story-gpu-cuda-oom">CUDA OOM（回放）</option></select></label><button type="button" id="replay-run">运行回放</button></div>
+  <div id="replay-result" role="status"></div>
+  <div id="replay-actions" class="toolbar" hidden><button type="button" class="secondary" id="replay-verify">验证回放</button><a href="/pages/diagnosis" class="button secondary">查看回放诊断</a></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  let runId = null;
+  const LT = window.LT, result = document.getElementById("replay-result"), button = document.getElementById("replay-run");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      const name = document.getElementById("replay-scenario").value;
+      const run = await LT.api("/api/v1/scenarios/" + encodeURIComponent(name) + ":run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "replay" }) });
+      runId = run.id;
+      result.innerHTML = '<p class="notice">回放已完成 · ' + LT.esc(LT.label(run.state)) + ' <span class="prov prov-replayed">回放</span><br><span class="mono">' + LT.esc(run.id) + '</span></p>';
+      document.getElementById("replay-actions").hidden = false;
+    } catch (error) { result.textContent = error.message; result.className = "notice notice-error"; }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("replay-verify").addEventListener("click", async () => {
+    if (!runId) return;
+    try {
+      const run = await LT.api("/api/v1/scenario-runs/" + encodeURIComponent(runId) + ":verify", { method: "POST" });
+      LT.notice(run.verification_result?.passed ? "回放验证通过" : "回放验证未通过，请查看证据与缺失项。");
+    } catch (error) { LT.notice(error.message, true); }
+  });
+});
+</script>
+{% endblock %}

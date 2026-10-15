@@ -1,0 +1,14 @@
+# Load the matching offline control-plane archive and manifest first.
+services:
+  control-plane:
+    image: layertrace-control-plane:delivery-20261015-r4
+    build: !reset null
+    pull_policy: never
+  worker:
+    image: layertrace-control-plane:delivery-20261015-r4
+    build: !reset null
+    pull_policy: never
+  migrate:
+    image: layertrace-control-plane:delivery-20261015-r4
+    build: !reset null
+    pull_policy: never

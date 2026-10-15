@@ -1,0 +1,28 @@
+schema_version: "1.0"
+rule_id: R4
+version: 1.0.0
+title: 虚拟机/宿主机资源压力（R4a 邻居争用 / R4b guest steal）
+enabled: true
+symptoms:
+  - task.succeeded
+  - task.failed
+window:
+  before_seconds: 120
+  after_seconds: 30
+thresholds:
+  vm_cpu_saturated_percent: 90.0
+  neighbor_cpu_high_percent: 80.0
+  steal_high_percent: 10.0
+required_signals:
+  - vm_cpu_sample
+  - neighbor_container_stats
+  - platform_evidence
+relationship_paths:
+  - [container, vm, host]
+evaluator: r4_resource_pressure
+recommendations:
+  - R4a：限制/迁移高占用邻居容器，或上调 VM CPU
+  - R4b：联系平台侧确认宿主机超卖与迁移选项
+verification_steps:
+  - 对比症状容器与邻居容器的 CPU 序列
+  - R4b 需平台侧宿主机指标（当前环境未验证，见数据源状态）

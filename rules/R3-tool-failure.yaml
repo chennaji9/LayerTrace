@@ -1,0 +1,24 @@
+schema_version: "1.0"
+rule_id: R3
+version: 1.0.0
+title: Agent 工具调用失败
+enabled: true
+symptoms:
+  - task.failed
+  - tool.failed
+window:
+  before_seconds: 120
+  after_seconds: 30
+thresholds: {}
+required_signals:
+  - tool_deadline_or_http_error
+  - task_correlation
+relationship_paths:
+  - [service_instance, container]
+evaluator: r3_tool_failure
+recommendations:
+  - 检查工具服务日志与依赖（超时/503 的直接原因）
+  - 为工具调用增加重试与熔断，并把超时与共享基线对齐
+verification_steps:
+  - 复放同一工具调用确认错误可重现
+  - 检查工具服务自身资源与上游依赖状态

@@ -1,0 +1,48 @@
+# LayerTrace Prometheus 配置
+# - 抓取间隔 10 秒；规则评估 10 秒（不超过 15 秒上限）。
+# - 受控标签：禁止把 task_id、trace_id、提示词内容作为指标标签（data-model.md 第 4 节）。
+# - 交付采集采用 VM 探针9108；额外 exporter 仅在实际部署后加入targets。
+
+global:
+  scrape_interval: 10s
+  scrape_timeout: 8s
+  evaluation_interval: 10s
+  external_labels:
+    monitor: layertrace
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    # 控制面直接读取 Prometheus 告警 API（/api/v1/alerts）；
+    # 不把 Alertmanager 作为事件单事实来源（研究结论 11）。
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # 控制面和 worker 当前不暴露 Prometheus exporter。不要配置会持续失败的
+  # /metrics 抓取目标；应用事实由事件 API 入库，外部探针目标在下方接入。
+
+  # 探针指标（真实 VM 部署时由服务发现或静态配置接入；
+  # 标签含完整container_id / instance_id / vm_id / probe_id，禁止task_id、trace_id或提示词）
+  - job_name: vm-probe
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/probes/*.json"]
+        refresh_interval: 30s
+
+  # 可选主机 exporter，默认空targets，交付不宣称已经配置node_exporter mTLS。
+  - job_name: node
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/nodes/*.json"]
+        refresh_interval: 30s
+
+  # 可选工作负载 exporter，项目业务事实通过事件API而非通用/metrics提供。
+  - job_name: demo-workload
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/workloads/*.json"]
+        refresh_interval: 30s

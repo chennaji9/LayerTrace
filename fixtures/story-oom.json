@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "name": "story-oom",
+  "kind": "replay",
+  "description": "容器 OOM 正向回放：任务失败 + 容器 OOM 直接证据 + VM 内存正常反证",
+  "timeout_seconds": 180,
+  "topology": {
+    "resources": [
+      {"ref": "project", "kind": "project", "provider": "replay", "source_id": "story-oom-project", "display_name": "回放项目", "provenance": "replayed"},
+      {"ref": "host", "kind": "host", "provider": "zsvirt", "source_id": "story-oom-host-1", "display_name": "host-1", "provenance": "replayed"},
+      {"ref": "vm", "kind": "vm", "provider": "zsvirt", "source_id": "story-oom-vm-1", "display_name": "vm-1", "provenance": "replayed"},
+      {"ref": "agent", "kind": "container", "provider": "docker", "source_id": "story-oom-container-agent", "display_name": "demo-agent", "provenance": "replayed"},
+      {"ref": "tool", "kind": "container", "provider": "docker", "source_id": "story-oom-container-tool", "display_name": "tool-server", "provenance": "replayed"},
+      {"ref": "model", "kind": "container", "provider": "docker", "source_id": "story-oom-container-model", "display_name": "model-server", "provenance": "replayed"},
+      {"ref": "agent-si", "kind": "service_instance", "provider": "otel", "source_id": "story-oom-si-agent", "display_name": "demo-agent 实例", "provenance": "replayed"},
+      {"ref": "tool-si", "kind": "service_instance", "provider": "otel", "source_id": "story-oom-si-tool", "display_name": "tool-server 实例", "provenance": "replayed"},
+      {"ref": "model-si", "kind": "service_instance", "provider": "otel", "source_id": "story-oom-si-model", "display_name": "model-server 实例", "provenance": "replayed"}
+    ],
+    "relationships": [
+      {"from": "host", "type": "hosts", "to": "vm", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "contains", "to": "agent", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "contains", "to": "tool", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "contains", "to": "model", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "agent", "type": "runs", "to": "agent-si", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "tool", "type": "runs", "to": "tool-si", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "model", "type": "runs", "to": "model-si", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "belongs_to", "to": "project", "valid_from": "+0s", "provenance": "replayed"}
+    ]
+  },
+  "events": [
+    {
+      "schema_version": "1.0",
+      "event_id": "story-oom-task-started",
+      "event_type": "task.started",
+      "resource_ref": {"namespace": "otel.service_instance", "external_id": "story-oom-si-agent"},
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-oom",
+      "provenance": "replayed",
+      "correlation": {"task_id": "story-oom-task-1"},
+      "attributes": {"phase": "model"},
+      "scenario": {"name": "story-oom", "offset": "+0s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-oom-container-exit",
+      "event_type": "container.exit",
+      "resource_ref": {"namespace": "docker.container", "external_id": "story-oom-container-agent"},
+      "occurred_at": "2026-09-21T00:00:06Z",
+      "observed_at": "2026-09-21T00:00:06Z",
+      "severity": "warning",
+      "source": "replay:story-oom",
+      "provenance": "replayed",
+      "attributes": {"exit_code": 137, "signal": 9},
+      "scenario": {"name": "story-oom", "offset": "+6s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-oom-container-oom",
+      "event_type": "container.oom",
+      "resource_ref": {"namespace": "docker.container", "external_id": "story-oom-container-agent"},
+      "occurred_at": "2026-09-21T00:00:08Z",
+      "observed_at": "2026-09-21T00:00:08Z",
+      "severity": "critical",
+      "source": "replay:story-oom",
+      "provenance": "replayed",
+      "attributes": {"oom_killed": true, "exit_code": 137, "memory_limit_bytes": 536870912, "oom_kill_delta": 1},
+      "scenario": {"name": "story-oom", "offset": "+8s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-oom-vm-memory",
+      "event_type": "vm.memory.sample",
+      "resource_ref": {"namespace": "zsvirt.vm", "external_id": "story-oom-vm-1"},
+      "occurred_at": "2026-09-21T00:00:10Z",
+      "observed_at": "2026-09-21T00:00:10Z",
+      "severity": "info",
+      "source": "replay:story-oom",
+      "provenance": "replayed",
+      "attributes": {"available_ratio": 0.81, "used_bytes": 6442450944},
+      "scenario": {"name": "story-oom", "offset": "+10s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-oom-task-failed",
+      "event_type": "task.failed",
+      "resource_ref": {"namespace": "otel.service_instance", "external_id": "story-oom-si-agent"},
+      "occurred_at": "2026-09-21T00:00:12Z",
+      "observed_at": "2026-09-21T00:00:12Z",
+      "severity": "error",
+      "source": "replay:story-oom",
+      "provenance": "replayed",
+      "correlation": {"task_id": "story-oom-task-1"},
+      "attributes": {"error_class": "instance_lost", "duration_ms": 12000, "model_duration_ms": 4200, "tool_duration_ms": 3100},
+      "scenario": {"name": "story-oom", "offset": "+12s"}
+    }
+  ],
+  "expected_assertions": [
+    {"path": "incident_count", "operator": "equals", "expected": 1},
+    {"path": "r1_high_count", "operator": "equals", "expected": 1},
+    {"path": "diagnosis.revision", "operator": "equals", "expected": 1},
+    {"path": "all_events_replayed", "operator": "equals", "expected": true},
+    {"path": "contradicting_evidence_count", "operator": "greater_than", "expected": 0}
+  ]
+}

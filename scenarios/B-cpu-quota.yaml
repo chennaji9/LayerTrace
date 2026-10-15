@@ -1,0 +1,20 @@
+schema_version: "1.0"
+name: b-cpu-quota
+kind: fault
+description: CPU 配额降低注入：验证 R2（quota + throttling + 延迟升高）与配额恢复
+timeout_seconds: 300
+required_capabilities: [docker_inject, latency_baseline]
+topology:
+  resources: []
+  relationships: []
+events: []
+inject:
+  - operation: set_cpu_quota
+    target_ref: docker.container://demo-agent?layertrace-test=true
+    parameters: {cpu_quota: 50000, cpu_period_us: 100000, duration_seconds: 120}
+restore:
+  - operation: restore_snapshot
+    target_ref: docker.container://demo-agent?layertrace-test=true
+expected_assertions:
+  - {path: r2_high_count, operator: greater_than, expected: 0}
+  - {path: latency_recovered, operator: equals, expected: true}

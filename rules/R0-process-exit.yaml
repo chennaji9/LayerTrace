@@ -1,0 +1,24 @@
+schema_version: "1.0"
+rule_id: R0
+version: 1.0.0
+title: 容器进程异常退出
+enabled: true
+symptoms:
+  - container.exit
+window:
+  before_seconds: 120
+  after_seconds: 30
+required_signals:
+  - container_nonzero_exit
+  - task_failure
+relationship_paths:
+  - [container, service_instance]
+evaluator: r0_process_exit
+recommendations:
+  - 检查退出码、信号与容器日志，确认应用异常、外部终止或运行时故障
+  - 确认进程健康后重启目标容器，并重新执行受影响任务
+  - 若退出码为 137，先核验 OOMKilled 或 cgroup oom_kill，避免仅凭退出码判断内存不足
+verification_steps:
+  - 在目标节点执行 docker inspect <container>，检查 State.ExitCode、State.Error 与 OOMKilled
+  - 对照容器退出时间与同实例任务的客户端失败或中断记录
+  - 观察同容器恢复运行事件与新任务成功记录，确认故障解除

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}任务 · 层迹{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Agent 任务</h1><p class="muted">查看业务结果和模型、工具耗时，从失败任务进入对应诊断。</p></div></div>
+{% include "components/page_toolbar.html" %}
+<div class="panel">
+  <form id="task-filter" class="toolbar">
+    <label>任务 ID <input id="task-id" name="task_id" placeholder="精确查找任务 ID"></label>
+    <label>状态 <select id="task-status" name="status"><option value="">全部</option><option value="succeeded">成功</option><option value="failed">失败</option><option value="timed_out">超时</option><option value="interrupted">中断</option><option value="running">运行中</option></select></label>
+    <button type="submit" class="secondary">查找</button><button type="button" id="task-reset" class="secondary">清除筛选</button>
+  </form>
+  <table class="data" id="task-table">
+    <thead><tr><th>任务</th><th>状态 / 来源</th><th>错误</th><th>总耗时</th><th>模型</th><th>工具</th><th>开始</th><th>操作</th></tr></thead>
+    <tbody><tr><td colspan="8"><div class="skeleton"></div></td></tr></tbody>
+  </table>
+</div>
+<div class="panel" id="task-detail" hidden aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}<script src="/static/tasks.js" defer></script>{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}拓扑 · 层迹{% endblock %}
+{% block head %}<script src="/static/vendor/cytoscape.min.js" defer></script>{% endblock %}
+{% block content %}
+<h1>资源拓扑</h1>
+<p class="muted">点击资源查看身份与依赖。图中的来源标识区分真实观测、推断和回放。</p>
+<div class="panel placeholder-min" id="topology-view">
+  <div class="skeleton"></div>
+</div>
+<div class="panel"><h2>来源图例</h2><div id="topo-legend"></div></div>
+<div class="panel" id="topo-detail"><h2>资源详情</h2><p class="muted">点击拓扑节点查看资源身份与关联。</p></div>
+{% endblock %}
+{% block scripts %}<script src="/static/topology.js" defer></script>{% endblock %}

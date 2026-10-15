@@ -1,0 +1,55 @@
+services:
+  docker-proxy:
+    image: layertrace-vm-probe:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.probe
+    container_name: layertrace-docker-proxy
+    user: "0:0"
+    command: ["python", "-m", "agents.vm_probe.socket_proxy"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+  vm-probe:
+    image: layertrace-vm-probe:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.probe
+    container_name: layertrace-vm-probe
+    environment:
+      LAYERTRACE_API: ${LAYERTRACE_API:?Set the reachable LayerTrace control-plane URL}
+      LAYERTRACE_CA_FILE: ${LAYERTRACE_CA_FILE:-}
+      PROBE_INSTALLATION_ID: ${PROBE_INSTALLATION_ID:?Set a persistent installation ID}
+      PROBE_VM_EXTERNAL_ID: ${PROBE_VM_EXTERNAL_ID:?Use the real ZSvirt VM UUID}
+      PROBE_REGISTRATION_SECRET: ${PROBE_REGISTRATION_SECRET:?Set the registration secret}
+      PROBE_STATE_DIR: /var/lib/layertrace
+      PROBE_IDENTITY_PATH: /identity/services.json
+      DOCKER_PROXY_URL: http://docker-proxy:2375
+      SAMPLE_INTERVAL_SECONDS: "5"
+      INVENTORY_INTERVAL_SECONDS: "10"
+      HEARTBEAT_INTERVAL_SECONDS: "15"
+      PROBE_METRICS_PORT: "9108"
+      PROBE_CONTAINER_LABEL: layertrace.observe=true
+    volumes:
+      - probe-state:/var/lib/layertrace
+      - workload-identity:/identity
+      - ${LAYERTRACE_CA_DIRECTORY:-./certs}:/certs:ro
+    ports:
+      - ${PROBE_METRICS_BIND:-127.0.0.1}:9108:9108
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on: [docker-proxy]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+volumes:
+  probe-state:
+  workload-identity:
+networks:
+  layertrace-vm:

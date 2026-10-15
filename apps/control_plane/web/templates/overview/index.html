@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}总览 · 层迹{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">LayerTrace · 跨层证据诊断</div><h1>从失败任务找到故障根因</h1><p class="muted">连接平台、虚拟机、容器与 Agent，用可复核的证据确认影响和恢复。</p></div><a href="/pages/tasks" class="button">查看业务任务</a></div>
+{% include "components/page_toolbar.html" %}
+<div id="overview-stats" class="stat-grid"><div class="stat-card skeleton"></div></div>
+<div class="grid-2">
+  <div class="panel" id="overview-incidents"><h2>近期事件单</h2><div class="skeleton"></div></div>
+  <div class="panel" id="overview-sources"><h2>数据源</h2><div class="skeleton"></div></div>
+</div>
+<div class="panel" id="overview-summary"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const LT = window.LT, esc = LT.esc;
+  LT.installRefresh(async () => {
+    const [incidents, status, tasks] = await Promise.all([LT.api("/api/v1/incidents?limit=200"), LT.api("/api/v1/status"), LT.api("/api/v1/tasks?limit=200")]);
+    const active = incidents.items.filter(i => i.state !== "resolved").length;
+    document.getElementById("overview-stats").innerHTML = [
+      [active, "待处置事件单"], [tasks.items.filter(t => t.status === "failed" || t.status === "interrupted" || t.status === "timed_out").length, "最近任务中的失败"], [incidents.raw_alert_count, "原始告警"], [incidents.notification_count, "实际通知"]
+    ].map(([value, label]) => '<div class="stat-card"><strong>' + value + '</strong><span>' + label + '</span></div>').join("");
+    document.getElementById("overview-incidents").innerHTML = '<h2>近期事件单</h2><table class="data"><thead><tr><th>严重度</th><th>状态</th><th>发生于</th><th></th></tr></thead><tbody>' + incidents.items.slice(0, 6).map(i => '<tr><td><span class="sev sev-' + esc(i.severity) + '">' + esc(i.severity) + '</span></td><td>' + LT.stateBadge(i.state) + '</td><td>' + LT.fmtTime(i.last_seen) + '</td><td>' + LT.diagnosisLink(i.id) + '</td></tr>').join("") + '</tbody></table>' + (!incidents.items.length ? '<p class="muted">暂无事件单。请先确认数据源正常，再运行业务。</p>' : "") + '<p><a href="/pages/incidents">全部事件单</a></p>';
+    document.getElementById("overview-sources").innerHTML = '<h2>数据源</h2><table class="data"><thead><tr><th>来源</th><th>状态</th><th>最后成功</th></tr></thead><tbody>' + status.sources.map(s => '<tr><td>' + esc(s.type) + '</td><td>' + LT.stateDot(s.state) + '</td><td>' + LT.fmtTime(s.last_success_at) + '</td></tr>').join("") + '</tbody></table><p><a href="/pages/status">数据源详情</a></p>';
+    document.getElementById("overview-summary").innerHTML = '<h2>使用路径</h2><p><a href="/pages/status">确认采集</a> → <a href="/pages/topology">核对资源身份</a> → <a href="/pages/tasks">选择失败任务</a> → 证据诊断 → 确认与恢复</p><p class="muted small">当前模式：' + esc(status.mode) + ' · 待解析身份 ' + status.unresolved_count + ' · 页面列表展示最近 200 项，计数按各指标对应范围解释。</p>';
+  })();
+});
+</script>
+{% endblock %}

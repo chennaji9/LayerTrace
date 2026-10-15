@@ -1,0 +1,32 @@
+schema_version: "1.0"
+rule_id: R1
+version: 1.0.0
+title: 容器内存不足（OOM）
+enabled: true
+symptoms:
+  - container.oom
+  - container.exit
+  - task.failed
+window:
+  before_seconds: 120
+  after_seconds: 30
+thresholds:
+  exit_code_oom: 137
+  vm_memory_available_low: 0.1
+  vm_memory_available_normal: 0.5
+required_signals:
+  - container_oom_direct
+  - task_failure
+  - vm_memory_sample
+relationship_paths:
+  - [container, vm, host]
+  - [container, service_instance]
+evaluator: r1_oom
+recommendations:
+  - 检查容器内存限制，按工作集峰值与安全余量上调限制并滚动重启
+  - 对比同镜像其他实例的内存曲线，确认是否存在内存泄漏
+  - 若为批处理峰值负载，考虑分片或限流以降低单实例峰值
+verification_steps:
+  - 在目标节点执行 docker inspect <container> 确认 OOMKilled 标记
+  - 读取 cgroup memory.events，确认 oom_kill 计数在窗口内增加
+  - 复查 dmesg / 内核日志中的 oom-killer 记录与受杀进程

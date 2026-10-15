@@ -1,0 +1,2 @@
+FROM layertrace-demo-workload:local
+COPY --chown=10001:10001 workloads/demo_agent/load_generator.py /opt/layertrace/workloads/demo_agent/load_generator.py

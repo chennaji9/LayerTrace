@@ -1,0 +1,58 @@
+{
+  "created_at": "2026-10-14T18:30:31.964491+00:00",
+  "source": "official_upstream_version_tags",
+  "files": [
+    {
+      "component": "htmx",
+      "version": "1.9.12",
+      "repository": "https://github.com/bigskysoftware/htmx",
+      "tag": "v1.9.12",
+      "upstream_path": "LICENSE",
+      "api_url": "https://api.github.com/repos/bigskysoftware/htmx/contents/LICENSE?ref=v1.9.12",
+      "upstream_url": "https://github.com/bigskysoftware/htmx/blob/v1.9.12/LICENSE",
+      "git_blob_sha1": "d3061a372fda562b5a1d0a85bc56c67fc0d7d3fb",
+      "file": "htmx-LICENSE.txt",
+      "size_bytes": 642,
+      "sha256": "d3d2456f76414f2456104660ebd65aff1c04cd7966b942bdabd63f3cdb316a38"
+    },
+    {
+      "component": "cytoscape.js",
+      "version": "3.28.1",
+      "repository": "https://github.com/cytoscape/cytoscape.js",
+      "tag": "v3.28.1",
+      "upstream_path": "LICENSE",
+      "api_url": "https://api.github.com/repos/cytoscape/cytoscape.js/contents/LICENSE?ref=v3.28.1",
+      "upstream_url": "https://github.com/cytoscape/cytoscape.js/blob/v3.28.1/LICENSE",
+      "git_blob_sha1": "f14bb31d4df8989148401c3f92a84f8f8c6e9d6f",
+      "file": "cytoscape-LICENSE.txt",
+      "size_bytes": 1082,
+      "sha256": "ac2a446d6e1b489d9568def4ba7790ab81f5023ebba335d49a77dbff1960232e"
+    },
+    {
+      "component": "Apache ECharts",
+      "version": "5.5.0",
+      "repository": "https://github.com/apache/echarts",
+      "tag": "5.5.0",
+      "upstream_path": "LICENSE",
+      "api_url": "https://api.github.com/repos/apache/echarts/contents/LICENSE?ref=5.5.0",
+      "upstream_url": "https://github.com/apache/echarts/blob/5.5.0/LICENSE",
+      "git_blob_sha1": "c633765305b658c2b42837d2b72071d73c0379c5",
+      "file": "echarts-LICENSE.txt",
+      "size_bytes": 11990,
+      "sha256": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a"
+    },
+    {
+      "component": "Apache ECharts",
+      "version": "5.5.0",
+      "repository": "https://github.com/apache/echarts",
+      "tag": "5.5.0",
+      "upstream_path": "NOTICE",
+      "api_url": "https://api.github.com/repos/apache/echarts/contents/NOTICE?ref=5.5.0",
+      "upstream_url": "https://github.com/apache/echarts/blob/5.5.0/NOTICE",
+      "git_blob_sha1": "6f7322151d7506de93b19b97fd0e3924b16488fa",
+      "file": "echarts-NOTICE.txt",
+      "size_bytes": 168,
+      "sha256": "fa99ac3af859d0e13166906dc53a73ad34a08898da7e8ae83407275496e9e30c"
+    }
+  ]
+}

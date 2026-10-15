@@ -1,0 +1,12 @@
+{# 来源徽标组件：五类来源 + unknown/stale/gap 数据状态。
+   用法：{% include "components/provenance.html" %} 后调用
+   provenanceBadge('replayed') / dataStateBadge('stale')（见 app.css 的 .prov-* 与 .dstate-*）。 #}
+<span class="visually-hidden">来源标识组件定义见 app.css 与 static/app.js</span>
+<script>
+  window.LT_PROVENANCE_LABELS = {
+    observed: '观测', simulated: '模拟', replayed: '回放', inferred: '推断', manual: '人工'
+  };
+  window.LT_DATA_STATE_LABELS = {
+    unknown: '未知', stale: '陈旧', gap: '空档', current: '当前', unavailable: '不可用'
+  };
+</script>

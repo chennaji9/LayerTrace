@@ -1,0 +1,6 @@
+# Independent client image; Agent/model/tool images retain their existing identities.
+services:
+  demo-client:
+    image: "sha256:f9908323235308c10f5728ffe65ee938b33835219ae36638d1f944de5d0a6fb8"
+    build: !reset null
+    pull_policy: never

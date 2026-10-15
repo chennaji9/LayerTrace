@@ -1,0 +1,33 @@
+# LayerTrace 控制面 + worker 镜像（非 root，固定基础镜像与依赖版本）
+FROM python:3.12.6-slim@sha256:ad48727987b259854d52241fac3bc633574364867b8e20aec305e6e7f4028b26
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# 仅安装运行所需系统库（asyncpg 无额外系统依赖）
+RUN groupadd --gid 10001 layertrace \
+    && useradd --uid 10001 --gid layertrace --create-home --shell /usr/sbin/nologin layertrace
+
+WORKDIR /opt/layertrace
+
+# 先装依赖以利用层缓存；版本全部由 pyproject.toml 锁定
+COPY pyproject.toml README.md ./
+COPY apps/ apps/
+COPY agents/ agents/
+COPY packages/ packages/
+COPY integrations/ integrations/
+COPY rules/ rules/
+RUN pip install --no-cache-dir .
+
+COPY --chown=layertrace:layertrace . /opt/layertrace
+RUN chown -R layertrace:layertrace /opt/layertrace
+
+USER layertrace
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else 1)"
+
+CMD ["uvicorn", "apps.control_plane.main:app", "--host", "0.0.0.0", "--port", "8000"]

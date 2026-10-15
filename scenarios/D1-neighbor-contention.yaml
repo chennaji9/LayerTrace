@@ -1,0 +1,19 @@
+schema_version: "1.0"
+name: d1-neighbor-contention
+kind: fault
+description: 同 VM CPU 邻居争用注入（带测试标签、最长 3 分钟）：验证 R4a
+timeout_seconds: 180
+required_capabilities: [cpu_load_inject]
+topology:
+  resources: []
+  relationships: []
+events: []
+inject:
+  - operation: start_cpu_load
+    target_ref: vm://vm-1?layertrace-test=true
+    parameters: {cores: 3, duration_seconds: 150, label: layertrace-test=true}
+restore:
+  - operation: stop_cpu_load
+    target_ref: vm://vm-1?layertrace-test=true
+expected_assertions:
+  - {path: r4a_count, operator: greater_than, expected: 0}

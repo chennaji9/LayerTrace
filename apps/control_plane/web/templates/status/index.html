@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}数据源状态 · 层迹{% endblock %}
+{% block content %}
+<h1>数据源状态</h1>
+<p class="muted">检查连接、时效与能力。未配置、采集空档和权限不足均会显示，不当作健康。</p>
+{% include "components/page_toolbar.html" %}
+<div class="panel">
+  <table class="data" id="status-table">
+    <thead><tr><th>类型 / 实例</th><th>状态</th><th>最后成功</th><th>延迟</th><th>未解析</th><th>积压（秒）</th><th>丢弃</th><th>错误</th></tr></thead>
+    <tbody><tr><td colspan="8"><div class="skeleton"></div></td></tr></tbody>
+  </table>
+</div>
+<div class="panel" id="capabilities-panel"><h2>可用能力与权限</h2><div class="skeleton"></div></div>
+<div class="panel" id="unresolved-panel"><h2>待解析身份</h2><div class="skeleton"></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const LT = window.LT, esc = LT.esc;
+  LT.installRefresh(async () => {
+    const data = await LT.api("/api/v1/status");
+    document.querySelector("#status-table tbody").innerHTML = data.sources.map(s => '<tr><td>' + esc(s.type) + '<div class="mono small text-wrap">' + esc(s.instance) + '</div></td><td>' + LT.stateDot(s.state) + '</td><td>' + LT.fmtTime(s.last_success_at) + '</td><td>' + LT.fmtDuration(s.latency_ms) + '</td><td>' + s.unresolved_count + '</td><td>' + (s.queue_lag_seconds == null ? "—" : Number(s.queue_lag_seconds).toFixed(1)) + '</td><td>' + s.dropped_count + '</td><td class="text-wrap">' + esc(s.error_summary || "—") + '</td></tr>').join("");
+    document.getElementById("unresolved-panel").innerHTML = '<h2>待解析身份</h2><p>未解析外部身份：' + data.unresolved_count + '</p><p class="muted">出现非零计数时，先核查平台 VM 身份与探针绑定，避免将未知对象归入其他资源。</p>';
+    document.getElementById("capabilities-panel").innerHTML = '<h2>可用能力与权限</h2>' + data.sources.map(s => '<details class="evidence"><summary>' + esc(s.type) + ' · ' + esc(LT.label(s.state)) + '</summary>' + LT.values(s.capabilities || {}) + '<h3>缺少权限</h3>' + ((s.missing_permissions || []).length ? '<ul>' + s.missing_permissions.map(v => '<li>' + esc(v) + '</li>').join("") + '</ul>' : '<p class="muted">未报告缺少权限。</p>') + '<h3>采集空档</h3>' + ((s.data_gaps || []).length ? LT.values({ gaps: s.data_gaps }) : '<p class="muted">未记录采集空档。</p>') + '</details>').join("");
+  })();
+});
+</script>
+{% endblock %}

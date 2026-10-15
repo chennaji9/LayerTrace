@@ -1,0 +1,21 @@
+model:
+  name: Qwen2.5-0.5B-Instruct-GGUF
+  quantization: q4_k_m
+  file: qwen2.5-0.5b-instruct-q4_k_m.gguf
+  size_bytes: 491400032
+  sha256: 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+  license: Apache-2.0
+  source: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF
+runtime:
+  name: llama.cpp CPU server
+  image: ghcr.io/ggml-org/llama.cpp@sha256:09bf53de6c74c0d6600444375d257803269a4a182061c3e4a0db4f57218faf8a
+  platform: linux/amd64
+  build: 11610
+  commit: 091b6a7fc
+  license: MIT
+  source: https://github.com/ggml-org/llama.cpp
+  gpu_layers: 0
+offline_check:
+  - sha256sum verifies the model before deployment
+  - model and runtime run on the Docker network without external API access
+  - normal task response includes model_answer, tool_result and model-generated summary

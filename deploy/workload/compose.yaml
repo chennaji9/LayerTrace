@@ -1,0 +1,122 @@
+x-workload-env: &workload-env
+  LAYERTRACE_API: ${LAYERTRACE_API:?Set the reachable LayerTrace control-plane URL}
+  LAYERTRACE_TOKEN: ${LAYERTRACE_TOKEN:?Set a project write credential}
+  LAYERTRACE_CA_FILE: ${LAYERTRACE_CA_FILE:-}
+  LAYERTRACE_IDENTITY_FILE: /identity/services.json
+  WORKLOAD_STATE_DIR: /var/lib/layertrace-workload
+
+services:
+  demo-model:
+    image: ghcr.io/ggml-org/llama.cpp@sha256:09bf53de6c74c0d6600444375d257803269a4a182061c3e4a0db4f57218faf8a
+    container_name: layertrace-demo-model
+    command: ["-m", "/models/qwen2.5-0.5b-instruct-q4_k_m.gguf", "--host", "0.0.0.0", "--port", "8080", "-t", "${MODEL_THREADS:-1}", "-c", "1024", "-np", "1", "-ngl", "0"]
+    volumes:
+      - ${LAYERTRACE_MODEL_DIRECTORY:?Point to the verified model directory}:/models:ro
+    cpus: "2"
+    mem_limit: 1536m
+    labels:
+      layertrace.observe: "true"
+      layertrace.lab: "true"
+      layertrace.service: demo-model
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+  demo-tool:
+    image: layertrace-demo-workload:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.demo-agent
+    container_name: layertrace-demo-tool
+    command: ["python", "-m", "workloads.demo_agent.tool_server"]
+    environment:
+      TOOL_FAULT_STATE: /var/lib/layertrace-tool/fault.json
+    volumes:
+      - tool-state:/var/lib/layertrace-tool
+    labels:
+      layertrace.observe: "true"
+      layertrace.lab: "true"
+      layertrace.service: demo-tool
+    cpus: "0.5"
+    mem_limit: 128m
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+  demo-agent:
+    image: layertrace-demo-workload:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.demo-agent
+    container_name: layertrace-demo-agent
+    command: ["python", "-m", "workloads.demo_agent.agent"]
+    environment:
+      <<: *workload-env
+      LAYERTRACE_SERVICE: demo-agent
+      LLAMA_URL: http://demo-model:8080
+      TOOL_SERVER_URL: http://demo-tool:8090
+      MODEL_TIMEOUT_SECONDS: ${MODEL_TIMEOUT_SECONDS:-45}
+      TOOL_TIMEOUT_SECONDS: "5"
+      MODEL_INITIAL_TOKENS: "32"
+      MODEL_SUMMARY_TOKENS: "40"
+    ports: ["127.0.0.1:8091:8091"]
+    volumes:
+      - workload-identity:/identity:ro
+      - agent-state:/var/lib/layertrace-workload
+      - ${LAYERTRACE_CA_DIRECTORY:-./certs}:/certs:ro
+    labels:
+      layertrace.observe: "true"
+      layertrace.lab: "true"
+      layertrace.service: demo-agent
+      layertrace.depends_on: demo-model,demo-tool
+    depends_on: [demo-model, demo-tool]
+    cpus: "0.5"
+    mem_limit: 192m
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+  demo-client:
+    image: layertrace-demo-workload:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile.demo-agent
+    container_name: layertrace-demo-client
+    command: ["python", "-m", "workloads.demo_agent.load_generator"]
+    environment:
+      <<: *workload-env
+      LAYERTRACE_SERVICE: demo-client
+      LAYERTRACE_OBSERVER: demo-client
+      AGENT_URL: http://demo-agent:8091
+      LOAD_INTERVAL_SECONDS: ${LOAD_INTERVAL_SECONDS:-2}
+      CLIENT_TIMEOUT_SECONDS: ${CLIENT_TIMEOUT_SECONDS:-100}
+    volumes:
+      - workload-identity:/identity:ro
+      - client-state:/var/lib/layertrace-workload
+      - client-results:/results
+      - ${LAYERTRACE_CA_DIRECTORY:-./certs}:/certs:ro
+    labels:
+      layertrace.observe: "true"
+      layertrace.service: demo-client
+      layertrace.depends_on: demo-agent
+    depends_on: [demo-agent]
+    cpus: "0.25"
+    mem_limit: 128m
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [layertrace-vm]
+volumes:
+  workload-identity:
+  agent-state:
+  client-state:
+  client-results:
+  tool-state:
+networks:
+  layertrace-vm:

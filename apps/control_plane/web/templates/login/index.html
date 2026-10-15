@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}登录 · 层迹{% endblock %}
+{% block content %}
+<section class="login-panel panel">
+  <div class="eyebrow">LayerTrace</div>
+  <h1>进入观测工作台</h1>
+  <p class="muted">使用部署时配置的访问令牌登录。登录后可查看资源、追踪任务和处置事件单。</p>
+  {% if authentication_enabled %}
+  <form method="post" action="/login" id="login-form" class="stack-form">
+    <input type="hidden" name="login_nonce" value="{{ login_nonce }}">
+    <input type="hidden" name="next" value="{{ next_path }}">
+    <label for="access-token">访问令牌</label>
+    <input id="access-token" name="token" type="password" autocomplete="off" required autofocus maxlength="8192" placeholder="输入访问令牌">
+    {% if login_error %}<p class="notice notice-error" role="alert">{{ login_error }}</p>{% endif %}
+    <button type="submit">登录工作台</button>
+  </form>
+  <p class="muted small">令牌不会显示在页面或保存到浏览器本地存储。会话有效期为 12 小时。</p>
+  {% else %}
+  <p class="notice">此环境未配置访问令牌。回放演示可从本机进入；真实部署请先配置访问令牌。</p>
+  <a class="button" href="/">进入总览</a>
+  {% endif %}
+</section>
+{% endblock %}

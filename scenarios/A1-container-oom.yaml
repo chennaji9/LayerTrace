@@ -1,0 +1,20 @@
+schema_version: "1.0"
+name: a1-container-oom
+kind: fault
+description: 容器 OOM 注入：限时压满内存触发 OOMKill，验证 R1 闭环后恢复
+timeout_seconds: 180
+required_capabilities: [docker_inject]
+topology:
+  resources: []
+  relationships: []
+events: []
+inject:
+  - operation: set_memory_limit
+    target_ref: docker.container://demo-agent?layertrace-test=true
+    parameters: {memory_limit_bytes: 134217728, stress_seconds: 60}
+restore:
+  - operation: restore_snapshot
+    target_ref: docker.container://demo-agent?layertrace-test=true
+expected_assertions:
+  - {path: r1_high_count, operator: greater_than, expected: 0}
+  - {path: interrupted_tasks_with_client_obs, operator: greater_than, expected: 0}

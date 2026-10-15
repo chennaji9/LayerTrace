@@ -1,0 +1,15 @@
+name: layertrace-node-exporter
+# VM 内 node_exporter（TLS pull 路径）。启用条件见 docs/environment-risk.md。
+services:
+  node_exporter:
+    image: prom/node-exporter:v1.8.2@sha256:4032c6d5bfd752342c3e631c2f1de93ba6b86c41db6b167b9a35372c139e7706
+    command:
+      - --path.rootfs=/host
+      - --web.config.file=/etc/node_exporter/web-config.yml
+    volumes:
+      - /:/host:ro,rslave
+      - ./web-config.yml:/etc/node_exporter/web-config.yml:ro
+      - ./certs:/etc/node_exporter/certs:ro
+    pid: host
+    restart: unless-stopped
+    network_mode: host

@@ -1,0 +1,19 @@
+schema_version: "1.0"
+name: optional-platform-pressure
+kind: fault
+description: 可选 R4b 场景（D2/D3 类）：需要平台侧能力与授权，能力不足时使用回放替代
+timeout_seconds: 900
+required_capabilities: [zsvirt_platform_inject, platform_fields_verified]
+topology:
+  resources: []
+  relationships: []
+events: []
+inject:
+  - operation: set_cpu_quota
+    target_ref: zsvirt.vm://vm-1?layertrace-test=true
+    parameters: {cpu_limit_percent: 20}
+restore:
+  - operation: restore_snapshot
+    target_ref: zsvirt.vm://vm-1?layertrace-test=true
+expected_assertions:
+  - {path: r4b_count, operator: greater_than, expected: 0}

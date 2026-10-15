@@ -1,0 +1,40 @@
+name: layertrace-docker-socket-proxy
+
+# 受限 Docker 代理（T130）：探针只允许 inspect/events/stats；
+# create/exec/delete 等写操作在代理层拒绝；入口仅绑定本机回环。
+services:
+  socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2
+    environment:
+      - CONTROLS=1
+      - POST=0
+      - ALLOW_START=0
+      - ALLOW_STOPS=0
+      - ALLOW_RESTARTS=0
+      - LOGS=0
+      - NETWORKS=0
+      - NODES=0
+      - SERVICES=0
+      - SESSIONS=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=0
+      - VOLUMES=0
+      - EXEC=0
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - CONTAINERS=1
+      - DISTRIBUTION=0
+      - IMAGES=0
+      - INFO=1
+      - PLUGINS=0
+      - SECRETS=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    read_only: true
+    tmpfs:
+      - /run
+    restart: unless-stopped

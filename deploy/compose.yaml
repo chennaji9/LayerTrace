@@ -1,0 +1,205 @@
+name: layertrace
+
+# LayerTrace 部署编排。
+# - control-plane 的 HTTP 端口仅绑定 loopback（127.0.0.1），跨主机入口一律走 Caddy TLS。
+# - control-plane 与 worker 共享同一镜像与代码，但进程独立（单 worker 串行轮询，防止重复执行）。
+# - Tempo / OTel Collector 为可选组件（standard 档 profile），默认不启动。
+# - 镜像版本固定；发布终审（T145）时补齐镜像摘要并复核。
+
+x-control-plane-env: &control-plane-env
+  MODE: ${MODE:-prod}
+  LAB_ENABLED: ${LAB_ENABLED:-false}
+  DATABASE_URL: ${DATABASE_URL:?Generate a protected .env with scripts/configure_local_env.py}
+  PROMETHEUS_URL: http://prometheus:9090
+  GRAFANA_URL: ${GRAFANA_URL:-}
+  TEMPO_URL: ${TEMPO_URL:-}
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.31.255.0/24}
+  # 宿主机 127.0.0.1:8000 经 Docker DNAT 后的唯一来源地址。
+  # 端口映射仍只绑定 loopback，不能把此白名单用于 0.0.0.0 发布端口。
+  PLAINTEXT_CLIENT_CIDRS: 172.31.255.1/32
+  # Browser sessions are signed with API_TOKENS; there is no separate session secret.
+  API_TOKENS: ${API_TOKENS:?Set a strong project API token}
+  PROBE_REGISTRATION_SECRET: ${PROBE_REGISTRATION_SECRET:?Set a strong probe registration secret}
+  PROBE_TOKEN_TTL_SECONDS: ${PROBE_TOKEN_TTL_SECONDS:-600}
+  TENANT_ID: ${TENANT_ID:-00000000-0000-0000-0000-000000000001}
+  PROJECT_ID: ${PROJECT_ID:-00000000-0000-0000-0000-000000000001}
+  INSTANCE_NAME: ${INSTANCE_NAME:-layertrace-control-plane}
+  ZSVIRT_ENABLED: ${ZSVIRT_ENABLED:-false}
+  ZSVIRT_BASE_URL: ${ZSVIRT_BASE_URL:-}
+  ZSVIRT_TOKEN: ${ZSVIRT_TOKEN:-}
+  ZSVIRT_ACCOUNT_NAME: ${ZSVIRT_ACCOUNT_NAME:-}
+  ZSVIRT_PASSWORD_HASH: ${ZSVIRT_PASSWORD_HASH:-}
+  ZSVIRT_CA_PATH: ${ZSVIRT_CA_PATH:-}
+  ZSVIRT_VERIFY_HOSTNAME: ${ZSVIRT_VERIFY_HOSTNAME:-true}
+  ZSVIRT_PROVIDER_INSTANCE: ${ZSVIRT_PROVIDER_INSTANCE:-zsvirt-lab}
+  REQUIRE_TLS_OFF_LOOPBACK: ${REQUIRE_TLS_OFF_LOOPBACK:-true}
+  HEARTBEAT_INTERVAL_SECONDS: ${HEARTBEAT_INTERVAL_SECONDS:-15}
+  STALE_AFTER_MISSED_HEARTBEATS: ${STALE_AFTER_MISSED_HEARTBEATS:-3}
+  ALERT_POLL_SECONDS: ${ALERT_POLL_SECONDS:-15}
+  INCIDENT_RECOVERY_STABLE_SECONDS: ${INCIDENT_RECOVERY_STABLE_SECONDS:-60}
+  BASELINE_MIN_SAMPLES: ${BASELINE_MIN_SAMPLES:-30}
+  BASELINE_WINDOW_SECONDS: ${BASELINE_WINDOW_SECONDS:-900}
+  RETENTION_METRICS_DAYS: ${RETENTION_METRICS_DAYS:-7}
+  RETENTION_SPAN_DAYS: ${RETENTION_SPAN_DAYS:-3}
+  RETENTION_EVENT_DAYS: ${RETENTION_EVENT_DAYS:-30}
+  RETENTION_DIAGNOSIS_DAYS: ${RETENTION_DIAGNOSIS_DAYS:-30}
+  WEB_HOST: 0.0.0.0  # 容器内监听全部接口；跨主机入站由 Compose 端口映射与 Caddy 控制
+  WEB_PORT: "8000"
+
+services:
+  postgres:
+    image: postgres:16.4-alpine3.20@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c
+    environment:
+      POSTGRES_USER: layertrace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong PostgreSQL password}
+      POSTGRES_DB: layertrace
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U layertrace -d layertrace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [layertrace]
+
+  control-plane:
+    image: layertrace-control-plane:local
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.control-plane
+    command: ["uvicorn", "apps.control_plane.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *control-plane-env
+    ports:
+      # 仅 loopback 开发/回放验证入口；跨主机访问使用 Caddy HTTPS 入口
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks: [layertrace]
+
+  worker:
+    image: layertrace-control-plane:local
+    command: ["python", "-m", "apps.control_plane.worker"]
+    environment: *control-plane-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks: [layertrace]
+
+  migrate:
+    image: layertrace-control-plane:local
+    command: ["layertrace", "migrate"]
+    environment: *control-plane-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [layertrace]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=${RETENTION_METRICS_DAYS:-7}d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9090/-/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [layertrace]
+
+  grafana:
+    image: grafana/grafana:11.2.0@sha256:408afb9726de5122b00a2576763a8a57a3c86d5b0eff5305bc994ceb3eb96c3f
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set a strong Grafana admin password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [layertrace]
+
+  caddy:
+    image: caddy:2.8.4-alpine@sha256:af32e97399febea808609119bb21544d0265c58a02836576e32a2d082c262c17
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    ports:
+      # 跨主机 HTTPS 入口（80 仅重定向到 HTTPS）
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # 可轮换证书：替换挂载文件后执行 `docker compose exec caddy caddy reload`
+      - ./caddy/certs:/etc/caddy/certs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [layertrace]
+
+  # 可选：标准档链路（tempo + otel collector），通过 --profile standard 启用
+  tempo:
+    image: grafana/tempo:2.6.0@sha256:f55a8a1937fff0af3a760d376b476c8327fb30e432d5e7630d7938b67691e822
+    command: ["-config.file=/etc/tempo/tempo.yaml", "-config.expand-env=true"]
+    environment:
+      TEMPO_RETENTION_PERIOD: ${TEMPO_RETENTION_PERIOD:-72h}
+    volumes:
+      - ./otel/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    profiles: [standard]
+    restart: unless-stopped
+    networks: [layertrace]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0@sha256:af0f72b2d2493fc17f06cf3bc136548240cd7ebb2c8b1c8a7be6f3eb03068389
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    profiles: [standard]
+    restart: unless-stopped
+    networks: [layertrace]
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+  caddy-data:
+  caddy-config:
+  tempo-data:
+
+networks:
+  layertrace:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.255.0/24
+          gateway: 172.31.255.1

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}事件单 · 层迹{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>事件单运营</h1><p class="muted">告警聚合、确认与通知静默；事实和诊断始终保留。</p></div></div>
+{% include "components/page_toolbar.html" %}
+<div class="panel" id="noise-panel"><h2>降噪效果</h2><div class="skeleton"></div></div>
+<div class="panel">
+  <div class="toolbar">
+    <label>状态 <select id="incident-state"><option value="">全部</option><option value="open">待处理</option><option value="acknowledged">已确认</option><option value="resolved">已恢复</option></select></label>
+    <label>严重度 <select id="incident-severity"><option value="">全部</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
+  </div>
+  <table class="data" id="incident-table">
+    <thead><tr><th>事件单 / 指纹</th><th>严重度</th><th>状态</th><th>告警数</th><th>通知静默</th><th>最近发生</th><th>操作</th></tr></thead>
+    <tbody><tr><td colspan="7"><div class="skeleton"></div></td></tr></tbody>
+  </table>
+</div>
+<div class="panel" id="silence-panel">
+  <h2>创建静默（只抑制通知，不隐藏事实）</h2>
+  <p class="muted">先点击对应事件单的“静默通知”自动选中指纹，再填写处置理由。</p>
+  <form id="silence-form" class="stack-form">
+    <label for="silence-fingerprint">事件单指纹</label><input id="silence-fingerprint" name="fingerprint" required readonly>
+    <label for="silence-reason">理由</label><input id="silence-reason" name="reason" required maxlength="1000" placeholder="例如：已定位故障，正在恢复容器">
+    <label for="silence-actor">操作者</label><input id="silence-actor" name="created_by" required value="演示操作者">
+    <label for="silence-minutes">时长（分钟）</label><input id="silence-minutes" name="minutes" type="number" value="30" min="1" max="1440" required>
+    <button type="submit">创建通知静默</button><div id="silence-result" role="status"></div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/incidents.js" defer></script>{% endblock %}

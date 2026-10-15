@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "name": "story-exit-137-not-oom",
+  "kind": "replay",
+  "description": "反例回放：只有退出码 137，没有可信 OOM 证据，R1 不得成立",
+  "timeout_seconds": 120,
+  "topology": {
+    "resources": [
+      {"ref": "project", "kind": "project", "provider": "replay", "source_id": "story-137-project", "display_name": "回放项目", "provenance": "replayed"},
+      {"ref": "host", "kind": "host", "provider": "zsvirt", "source_id": "story-137-host-1", "display_name": "host-1", "provenance": "replayed"},
+      {"ref": "vm", "kind": "vm", "provider": "zsvirt", "source_id": "story-137-vm-1", "display_name": "vm-1", "provenance": "replayed"},
+      {"ref": "agent", "kind": "container", "provider": "docker", "source_id": "story-137-container-agent", "display_name": "demo-agent", "provenance": "replayed"},
+      {"ref": "agent-si", "kind": "service_instance", "provider": "otel", "source_id": "story-137-si-agent", "display_name": "demo-agent 实例", "provenance": "replayed"}
+    ],
+    "relationships": [
+      {"from": "host", "type": "hosts", "to": "vm", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "contains", "to": "agent", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "agent", "type": "runs", "to": "agent-si", "valid_from": "+0s", "provenance": "replayed"},
+      {"from": "vm", "type": "belongs_to", "to": "project", "valid_from": "+0s", "provenance": "replayed"}
+    ]
+  },
+  "events": [
+    {
+      "schema_version": "1.0",
+      "event_id": "story-137-task-started",
+      "event_type": "task.started",
+      "resource_ref": {"namespace": "otel.service_instance", "external_id": "story-137-si-agent"},
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-exit-137-not-oom",
+      "provenance": "replayed",
+      "correlation": {"task_id": "story-137-task-1"},
+      "attributes": {"phase": "model"},
+      "scenario": {"name": "story-exit-137-not-oom", "offset": "+0s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-137-container-exit",
+      "event_type": "container.exit",
+      "resource_ref": {"namespace": "docker.container", "external_id": "story-137-container-agent"},
+      "occurred_at": "2026-09-21T00:00:06Z",
+      "observed_at": "2026-09-21T00:00:06Z",
+      "severity": "warning",
+      "source": "replay:story-exit-137-not-oom",
+      "provenance": "replayed",
+      "attributes": {"exit_code": 137},
+      "scenario": {"name": "story-exit-137-not-oom", "offset": "+6s"}
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-137-task-failed",
+      "event_type": "task.failed",
+      "resource_ref": {"namespace": "otel.service_instance", "external_id": "story-137-si-agent"},
+      "occurred_at": "2026-09-21T00:00:08Z",
+      "observed_at": "2026-09-21T00:00:08Z",
+      "severity": "error",
+      "source": "replay:story-exit-137-not-oom",
+      "provenance": "replayed",
+      "correlation": {"task_id": "story-137-task-1"},
+      "attributes": {"error_class": "instance_lost"},
+      "scenario": {"name": "story-exit-137-not-oom", "offset": "+8s"}
+    }
+  ],
+  "expected_assertions": [
+    {"path": "r1_high_count", "operator": "equals", "expected": 0}
+  ]
+}

@@ -1,0 +1,34 @@
+# LayerTrace 告警规则（持续阈值型）
+# 评估间隔 10s（prometheus.yml global.evaluation_interval）。
+# 规则只产生 Prometheus 告警事实；事件单聚合与恢复由控制面负责（单一事实来源）。
+# 标签仅使用受控字段：rule 层面允许 severity 与 vm_id/container 代次标签，
+# 禁止 task_id、trace_id、提示词或任何原始载荷内容进入标签。
+
+groups:
+  - name: layertrace-container
+    interval: 10s
+    rules:
+      - alert: ContainerMemoryNearLimit
+        expr: |
+          container_memory_working_set_bytes{job="vm-probe"}
+            / on(container_id) group_left probe_container_memory_limit_bytes{job="vm-probe"}
+            > 0.95
+        for: 30s
+        labels:
+          severity: warning
+          rule: container-memory-near-limit
+        annotations:
+          summary: "容器工作集内存接近限制"
+
+  - name: layertrace-vm
+    interval: 15s
+    rules:
+      - alert: VMGuestCpuSaturation
+        expr: |
+          rate(node_cpu_seconds_total{mode="idle",job="node"}[1m]) < 0.05
+        for: 60s
+        labels:
+          severity: warning
+          rule: vm-guest-cpu-saturation
+        annotations:
+          summary: "VM guest CPU 空闲率持续低于 5%"

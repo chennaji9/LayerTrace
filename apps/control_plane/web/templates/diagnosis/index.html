@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}诊断 · 层迹{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>证据诊断</h1><p class="muted">沿同一资源和任务的证据链判断故障，保留反证与缺失项。</p></div><a href="/pages/incidents" class="button secondary">返回事件单</a></div>
+{% include "components/page_toolbar.html" %}
+<div class="panel" id="diagnosis-incident-list">
+  <h2>选择事件单</h2>
+  <table class="data" id="incident-table">
+    <thead><tr><th>事件单</th><th>严重度</th><th>状态</th><th>告警数</th><th>最近更新</th><th>操作</th></tr></thead>
+    <tbody><tr><td colspan="6"><div class="skeleton"></div></td></tr></tbody>
+  </table>
+</div>
+<div id="diagnosis-detail" class="placeholder-min" hidden aria-live="polite">
+  <div class="panel" id="d-heading"></div>
+  <div class="panel" id="d-candidates"><h2>候选根因</h2><div class="skeleton"></div></div>
+  <div class="grid-2">
+    <div class="panel" id="d-impact"><h2>任务影响</h2><div class="skeleton"></div></div>
+    <div class="panel" id="d-meta"><h2>规则与时间可信度</h2><div class="skeleton"></div></div>
+  </div>
+  <div class="panel" id="d-timeline"><h2>时间线</h2><div class="skeleton"></div></div>
+  <div class="panel" id="d-evidence"><h2>证据索引</h2><div class="skeleton"></div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/diagnosis.js" defer></script>{% endblock %}

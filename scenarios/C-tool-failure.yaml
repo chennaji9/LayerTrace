@@ -1,0 +1,20 @@
+schema_version: "1.0"
+name: c-tool-failure
+kind: fault
+description: 工具调用失败注入（deadline/503）：验证 R3 与不归因基础设施断言
+timeout_seconds: 180
+required_capabilities: [tool_fault_inject]
+topology:
+  resources: []
+  relationships: []
+events: []
+inject:
+  - operation: set_tool_behavior
+    target_ref: tool-server://lookup_runbook?layertrace-test=true
+    parameters: {mode: deadline, duration_seconds: 90}
+restore:
+  - operation: restore_snapshot
+    target_ref: tool-server://lookup_runbook?layertrace-test=true
+expected_assertions:
+  - {path: r3_count, operator: greater_than, expected: 0}
+  - {path: infra_blamed, operator: equals, expected: false}

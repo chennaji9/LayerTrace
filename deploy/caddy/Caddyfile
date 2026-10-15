@@ -1,0 +1,28 @@
+# LayerTrace 跨主机入口。
+# - Caddy 只承担控制面跨主机入站 HTTPS 终止、证书校验与 HTTP->HTTPS 拒绝/重定向。
+# - 证书以挂载文件提供，支持轮换（替换文件后 `caddy reload`，不断开已建立连接）。
+# - 同一主机的 loopback 开发/回放入口不经过 Caddy（直接访问 127.0.0.1:8000）。
+# - 证书文件放在 ./certs/（不入仓库），文件名与下方引用一致。
+
+{
+	# 收敛服务器指纹，减少暴露面
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+https:// {
+	# 证书与私钥由挂载文件提供；域名通过环境变量 TLS_DOMAIN 配置
+	tls /etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
+
+	# 传递真实客户端信息给控制面；控制面仅信任该代理网段的转发头
+	reverse_proxy control-plane:8000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}
+
+# 明文跨主机请求一律拒绝并重定向到 HTTPS（80 端口仅保留重定向语义）
+http:// {
+	redir https://{host}{uri} permanent
+}

@@ -1,0 +1,815 @@
+openapi: 3.1.0
+info:
+  title: LayerTrace Control Plane API
+  version: 1.0.0
+  description: >-
+    供 Web、CLI、VM 探针、回放提供方和样例工作负载共同使用的版本化接口。
+    tenant_id 与 project_id 由服务端根据认证主体写入，客户端不得覆盖。
+servers:
+  - url: http://localhost:8000
+    description: 仅限同一主机 loopback 的开发和回放验证
+  - url: https://{host}
+    description: 跨主机部署入口，必须验证受信证书、主机名和有效期
+    variables:
+      host:
+        default: layertrace.local
+security:
+  - bearerAuth: []
+tags:
+  - name: Status
+    description: 控制面依赖、数据源能力、积压与数据质量状态
+  - name: Ingestion
+    description: 探针注册、心跳和标准事件写入
+  - name: Inventory
+    description: 资源身份与故障时有效拓扑查询
+  - name: Tasks
+    description: Agent 任务与分段耗时查询
+  - name: Workloads
+    description: 容器工作负载状态、限制、实时指标与证据深链
+  - name: Incidents
+    description: 告警聚合、事件单生命周期、诊断与静默
+  - name: Scenarios
+    description: 回放和授权实验场景的运行、验证与恢复
+paths:
+  /api/v1/status:
+    get:
+      tags: [Status]
+      summary: 获取控制面、数据源、队列和平台能力状态
+      operationId: getStatus
+      responses:
+        "200":
+          description: 当前状态；依赖失效仍返回 200，并在各数据源 state 中诚实表达
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/probes:register:
+    post:
+      tags: [Ingestion]
+      summary: 使用短期注册令牌绑定探针、VM 和项目
+      operationId: registerProbe
+      security:
+        - registrationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProbeRegistration"
+      responses:
+        "201":
+          description: 注册成功，返回可轮换的探针身份
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProbeRegistrationResult"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: 安装 ID 已绑定到其他 VM，必须重新注册
+  /api/v1/probes/{probe_id}:heartbeat:
+    post:
+      tags: [Ingestion]
+      summary: 更新探针健康、积压、丢弃和时钟状态
+      operationId: heartbeatProbe
+      parameters:
+        - $ref: "#/components/parameters/ProbeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProbeHeartbeat"
+      responses:
+        "204":
+          description: 心跳已接受
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/events:batch:
+    post:
+      tags: [Ingestion]
+      summary: 幂等写入标准事件批次
+      operationId: ingestEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./events.schema.json"
+      responses:
+        "202":
+          description: 批次已校验并接受；无法解析的身份进入 unresolved 队列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: 单条事件超过 256 KiB、批次超过 8 MiB/500 条、属性超过 64 项或嵌套超过 8 层
+  /api/v1/resources:
+    get:
+      tags: [Inventory]
+      summary: 分页查询资源
+      operationId: listResources
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: kind
+          in: query
+          schema:
+            type: string
+        - name: provenance
+          in: query
+          schema:
+            $ref: "#/components/schemas/Provenance"
+      responses:
+        "200":
+          description: 资源页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourcePage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/topology:
+    get:
+      tags: [Inventory]
+      summary: 查询当前或指定时刻的有效拓扑
+      operationId: getTopology
+      parameters:
+        - name: at
+          in: query
+          description: 省略时返回当前拓扑
+          schema:
+            type: string
+            format: date-time
+        - name: root_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: max_depth
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+            default: 5
+      responses:
+        "200":
+          description: 时态拓扑；若发生截断则 truncated 为 true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopologyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      summary: 查询 Agent 任务运行
+      operationId: listTaskRuns
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+        - name: service_instance_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 任务页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskRunPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/workloads:
+    get:
+      tags: [Workloads]
+      summary: 查询工作负载状态、资源限制和实时指标
+      operationId: listWorkloads
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [running, stopped, unknown]
+        - name: provenance
+          in: query
+          schema:
+            $ref: "#/components/schemas/Provenance"
+      responses:
+        "200":
+          description: 工作负载页；数据陈旧或缺失时由 state 和 data_state 明确表达
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkloadPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/incidents:
+    get:
+      tags: [Incidents]
+      summary: 查询事件单
+      operationId: listIncidents
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: state
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentState"
+        - name: severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentSeverity"
+      responses:
+        "200":
+          description: 事件单页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/incidents/{incident_id}:
+    get:
+      tags: [Incidents]
+      summary: 获取事件单、告警、时间线和最新诊断
+      operationId: getIncident
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: 事件单详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/incidents/{incident_id}:acknowledge:
+    post:
+      tags: [Incidents]
+      summary: 确认事件单
+      operationId: acknowledgeIncident
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actor]
+              properties:
+                actor:
+                  type: string
+                  minLength: 1
+                note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: 已确认的事件单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentSummary"
+        "409":
+          description: 当前状态不能确认
+  /api/v1/incidents/{incident_id}/diagnoses:
+    get:
+      tags: [Incidents]
+      summary: 获取事件单的全部诊断修订
+      operationId: listDiagnoses
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: 按 revision 升序返回
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Diagnosis"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/evidence/{evidence_id}:
+    get:
+      tags: [Incidents]
+      summary: 获取诊断修订引用的持久证据摘要
+      operationId: getEvidence
+      parameters:
+        - name: evidence_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: 项目范围内的证据；原始来源过期时仍保留摘要与查询参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/silences:
+    post:
+      tags: [Incidents]
+      summary: 创建只影响通知的静默
+      operationId: createSilence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SilenceRequest"
+      responses:
+        "201":
+          description: 静默已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silence"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/scenarios/{scenario_name}:run:
+    post:
+      tags: [Scenarios]
+      summary: 运行回放或授权 lab 故障场景
+      operationId: runScenario
+      parameters:
+        - $ref: "#/components/parameters/ScenarioName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioRunRequest"
+      responses:
+        "202":
+          description: 场景已进入执行队列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioRun"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "403":
+          description: 非 lab 模式、目标未授权或缺少能力
+        "409":
+          description: 同一目标已有活动场景
+  /api/v1/scenario-runs/{run_id}:verify:
+    post:
+      tags: [Scenarios]
+      summary: 使用测试断言验证场景，不把期望结果写入产品诊断
+      operationId: verifyScenario
+      parameters:
+        - $ref: "#/components/parameters/ScenarioRunId"
+      responses:
+        "200":
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioRun"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/scenario-runs/{run_id}:restore:
+    post:
+      tags: [Scenarios]
+      summary: 恢复场景目标到注入前状态
+      operationId: restoreScenario
+      parameters:
+        - $ref: "#/components/parameters/ScenarioRunId"
+      responses:
+        "202":
+          description: 恢复已开始
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioRun"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+    registrationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: short-lived-registration-token
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    ProbeId:
+      name: probe_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IncidentId:
+      name: incident_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScenarioName:
+      name: scenario_name
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9][a-z0-9-]{1,63}$"
+    ScenarioRunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: 缺少或提供了无效的认证凭证
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: 请求不符合契约
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: 身份无权访问该项目、VM 或操作
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: 对象不存在或不在认证范围内
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Provenance:
+      type: string
+      enum: [observed, simulated, replayed, inferred, manual]
+    SourceState:
+      type: string
+      enum: [not_configured, healthy, degraded, stale, unavailable, permission_denied]
+    StatusResponse:
+      type: object
+      required: [generated_at, mode, sources, unresolved_count, diagnosis_error_count]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        mode:
+          type: string
+          enum: [prod, lab, replay]
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+        unresolved_count:
+          type: integer
+          minimum: 0
+        diagnosis_error_count:
+          type: integer
+          minimum: 0
+    SourceStatus:
+      type: object
+      required: [type, instance, state, capabilities, unresolved_count, dropped_count]
+      properties:
+        type: { type: string }
+        instance: { type: string }
+        state: { $ref: "#/components/schemas/SourceState" }
+        last_success_at: { type: [string, "null"], format: date-time }
+        latency_ms: { type: [integer, "null"], minimum: 0 }
+        error_summary: { type: [string, "null"] }
+        missing_permissions: { type: array, items: { type: string } }
+        capabilities: { type: object }
+        unresolved_count: { type: integer, minimum: 0 }
+        queue_lag_seconds: { type: [number, "null"], minimum: 0 }
+        dropped_count: { type: integer, minimum: 0 }
+        data_gaps: { type: array, items: { $ref: "#/components/schemas/TimeRange" } }
+    ProbeRegistration:
+      type: object
+      additionalProperties: false
+      required: [installation_id, vm_ref, profile]
+      properties:
+        installation_id: { type: string, minLength: 1, maxLength: 256 }
+        vm_ref: { $ref: "#/components/schemas/ResourceRef" }
+        profile: { type: string, enum: [lightweight, standard] }
+        capabilities: { type: object }
+    ProbeRegistrationResult:
+      type: object
+      required: [probe_id, vm_id, credential, expires_at]
+      properties:
+        probe_id: { type: string, format: uuid }
+        vm_id: { type: string, format: uuid }
+        credential: { type: string, writeOnly: true }
+        expires_at: { type: string, format: date-time }
+    ProbeHeartbeat:
+      type: object
+      additionalProperties: false
+      required: [observed_at, queue_depth, dropped_count]
+      properties:
+        observed_at: { type: string, format: date-time }
+        queue_depth: { type: integer, minimum: 0 }
+        dropped_count: { type: integer, minimum: 0 }
+        oldest_queued_at: { type: [string, "null"], format: date-time }
+        clock_offset_seconds: { type: [number, "null"] }
+        gaps: { type: array, items: { $ref: "#/components/schemas/TimeRange" } }
+    IngestionResult:
+      type: object
+      required: [accepted, duplicate, unresolved, rejected]
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        duplicate: { type: integer, minimum: 0 }
+        unresolved: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        errors: { type: array, items: { $ref: "#/components/schemas/Error" } }
+    ResourceRef:
+      type: object
+      additionalProperties: false
+      required: [namespace, external_id]
+      properties:
+        namespace: { type: string, minLength: 1, maxLength: 128 }
+        external_id: { type: string, minLength: 1, maxLength: 512 }
+    Resource:
+      type: object
+      required: [id, kind, provider, provider_instance, source_id, provenance, first_seen, last_seen]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        provider: { type: string }
+        provider_instance: { type: string }
+        source_id: { type: string }
+        display_name: { type: [string, "null"] }
+        attributes: { type: object }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+    Relationship:
+      type: object
+      required: [id, from_id, type, to_id, valid_from, source, provenance]
+      properties:
+        id: { type: string, format: uuid }
+        from_id: { type: string, format: uuid }
+        type: { type: string }
+        to_id: { type: string, format: uuid }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: [string, "null"], format: date-time }
+        source: { type: string }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+    ResourcePage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Resource" } }
+        next_cursor: { type: [string, "null"] }
+    TopologyResponse:
+      type: object
+      required: [at, nodes, edges, truncated]
+      properties:
+        at: { type: string, format: date-time }
+        nodes: { type: array, items: { $ref: "#/components/schemas/Resource" } }
+        edges: { type: array, items: { $ref: "#/components/schemas/Relationship" } }
+        truncated: { type: boolean }
+    TaskStatus:
+      type: string
+      enum: [running, succeeded, failed, timed_out, interrupted]
+    TaskRun:
+      type: object
+      required: [id, task_id, service_instance_id, started_at, status, status_provenance]
+      properties:
+        id: { type: string, format: uuid }
+        task_id: { type: string }
+        service_instance_id: { type: string, format: uuid }
+        trace_id: { type: [string, "null"] }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: [string, "null"], format: date-time }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        status_provenance: { $ref: "#/components/schemas/Provenance" }
+        error_class: { type: [string, "null"] }
+        duration_ms: { type: [integer, "null"], minimum: 0 }
+        model_duration_ms: { type: [integer, "null"], minimum: 0 }
+        tool_duration_ms: { type: [integer, "null"], minimum: 0 }
+    TaskRunPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TaskRun" } }
+        next_cursor: { type: [string, "null"] }
+    Workload:
+      type: object
+      required: [id, container_id, display_name, state, data_state, limits, metrics, latency_baseline, provenance, observed_at]
+      properties:
+        id: { type: string, format: uuid }
+        container_id: { type: string, format: uuid }
+        display_name: { type: string }
+        state: { type: string, enum: [running, stopped, unknown] }
+        data_state: { type: string, enum: [current, stale, gap, unavailable] }
+        limits: { type: object, description: 故障时可追溯的 CPU 与内存限制摘要 }
+        metrics: { type: object, description: 通过证据查询适配层取得的实时指标摘要 }
+        latency_baseline: { $ref: "#/components/schemas/LatencyBaseline" }
+        dashboard_url: { type: [string, "null"], format: uri }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+        observed_at: { type: string, format: date-time }
+    WorkloadPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Workload" } }
+        next_cursor: { type: [string, "null"] }
+    LatencyBaseline:
+      type: object
+      required: [state, window_seconds, sample_count, multiplier]
+      properties:
+        state: { type: string, enum: [ready, insufficient] }
+        window_seconds: { type: integer, const: 900 }
+        sample_count: { type: integer, minimum: 0 }
+        p95_ms: { type: [number, "null"], minimum: 0 }
+        multiplier: { type: number, const: 3 }
+        agent_timeout_ms: { type: [integer, "null"], minimum: 1 }
+    IncidentState:
+      type: string
+      enum: [open, acknowledged, resolved]
+    IncidentSeverity:
+      type: string
+      enum: [P1, P2, P3]
+    IncidentSummary:
+      type: object
+      required: [id, fingerprint, state, severity, first_seen, last_seen, alert_count]
+      properties:
+        id: { type: string, format: uuid }
+        fingerprint: { type: string }
+        state: { $ref: "#/components/schemas/IncidentState" }
+        severity: { $ref: "#/components/schemas/IncidentSeverity" }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+        alert_count: { type: integer, minimum: 1 }
+        silenced_until: { type: [string, "null"], format: date-time }
+    IncidentPage:
+      type: object
+      required: [items, raw_alert_count, incident_count, notification_count]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/IncidentSummary" } }
+        next_cursor: { type: [string, "null"] }
+        raw_alert_count: { type: integer, minimum: 0 }
+        incident_count: { type: integer, minimum: 0 }
+        notification_count: { type: integer, minimum: 0 }
+    IncidentDetail:
+      allOf:
+        - $ref: "#/components/schemas/IncidentSummary"
+        - type: object
+          required: [alerts, timeline, diagnosis]
+          properties:
+            alerts: { type: array, items: { type: object } }
+            timeline: { type: array, items: { type: object } }
+            diagnosis: { oneOf: [{ $ref: "#/components/schemas/Diagnosis" }, { type: "null" }] }
+    Diagnosis:
+      type: object
+      required: [id, incident_id, revision, candidates, supporting_evidence_ids, contradicting_evidence_ids, missing_evidence, observed_impact, potential_impact, rule_versions, time_confidence, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        incident_id: { type: string, format: uuid }
+        revision: { type: integer, minimum: 1 }
+        candidates: { type: array, items: { $ref: "#/components/schemas/DiagnosisCandidate" } }
+        supporting_evidence_ids: { type: array, items: { type: string, format: uuid } }
+        contradicting_evidence_ids: { type: array, items: { type: string, format: uuid } }
+        missing_evidence: { type: array, items: { type: string } }
+        observed_impact: { type: object }
+        potential_impact: { type: object }
+        rule_versions: { type: object, additionalProperties: { type: string } }
+        time_confidence: { type: string, enum: [trusted, degraded, unknown] }
+        context_truncated: { type: boolean, default: false }
+        created_at: { type: string, format: date-time }
+    Evidence:
+      type: object
+      required: [id, kind, range_start, range_end, source_ref, summary, query_parameters, provenance, source_expired]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        resource_id: { type: [string, "null"], format: uuid }
+        range_start: { type: string, format: date-time }
+        range_end: { type: string, format: date-time }
+        source_ref: { type: string }
+        summary: { type: object }
+        query_parameters: { type: object }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+        source_expired: { type: boolean }
+    DiagnosisCandidate:
+      type: object
+      required: [rule_id, title, support_level, supporting, contradicting, missing, recommendations, verification]
+      properties:
+        rule_id: { type: string }
+        title: { type: string }
+        support_level: { type: string, enum: [high, medium, low] }
+        score: { type: [number, "null"], description: 规则支持程度，不是概率 }
+        supporting: { type: array, items: { type: string, format: uuid } }
+        contradicting: { type: array, items: { type: string, format: uuid } }
+        missing: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+        verification: { type: array, items: { type: string } }
+    SilenceRequest:
+      type: object
+      additionalProperties: false
+      required: [matcher, reason, created_by, starts_at, ends_at]
+      properties:
+        matcher:
+          type: object
+          minProperties: 1
+          maxProperties: 3
+          properties:
+            fingerprint: { type: string }
+            rule_id: { type: string }
+            resource_id: { type: string, format: uuid }
+            severity: { $ref: "#/components/schemas/IncidentSeverity" }
+          additionalProperties: false
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+        created_by: { type: string, minLength: 1 }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+    Silence:
+      allOf:
+        - $ref: "#/components/schemas/SilenceRequest"
+        - type: object
+          required: [id, created_at]
+          properties:
+            id: { type: string, format: uuid }
+            created_at: { type: string, format: date-time }
+    ScenarioRunRequest:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [replay, lab] }
+        target_refs: { type: array, items: { $ref: "#/components/schemas/ResourceRef" } }
+        timeout_seconds: { type: integer, minimum: 1, maximum: 900 }
+    ScenarioRun:
+      type: object
+      required: [id, scenario_name, mode, state, started_at, deadline_at]
+      properties:
+        id: { type: string, format: uuid }
+        scenario_name: { type: string }
+        mode: { type: string, enum: [replay, lab] }
+        state: { type: string, enum: [pending, running, verifying, succeeded, failed, restoring, restored, restore_failed] }
+        started_at: { type: string, format: date-time }
+        deadline_at: { type: string, format: date-time }
+        ended_at: { type: [string, "null"], format: date-time }
+        verification_result: { type: [object, "null"] }
+        restore_result: { type: [object, "null"] }
+    TimeRange:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        field: { type: [string, "null"] }

@@ -1,0 +1,10 @@
+# Load the matching offline probe archive and manifest first.
+services:
+  docker-proxy:
+    image: layertrace-vm-probe:delivery-20261015-probe-sleepfix
+    build: !reset null
+    pull_policy: never
+  vm-probe:
+    image: layertrace-vm-probe:delivery-20261015-probe-sleepfix
+    build: !reset null
+    pull_policy: never

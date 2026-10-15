@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}层迹 LayerTrace{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body data-page="{{ page|default('') }}">
+<a class="skip-link" href="#main">跳到主要内容</a>
+<header class="topbar">
+  <div class="brand"><a href="/">层迹 LayerTrace</a><span class="brand-sub">跨层证据诊断</span></div>
+  <nav class="mainnav" aria-label="主导航">
+    <a href="/" data-page="overview">总览</a>
+    <a href="/pages/topology" data-page="topology">拓扑</a>
+    <a href="/pages/workloads" data-page="workloads">工作负载</a>
+    <a href="/pages/tasks" data-page="tasks">任务</a>
+    <a href="/pages/incidents" data-page="incidents">事件单</a>
+    <a href="/pages/diagnosis" data-page="diagnosis">诊断</a>
+    <a href="/pages/status" data-page="status">状态</a>
+    <a href="/pages/lab" data-page="lab">实验</a>
+  </nav>
+  {% if page != "login" %}<div class="session-actions"><a href="/login" id="login-link">登录</a><button type="button" id="logout-button" hidden>退出</button></div>{% endif %}
+</header>
+<main class="content" id="main">
+  {% block content %}{% endblock %}
+</main>
+<footer class="footer">
+  <span>观测、推断与回放分别标记；采集空档不等同于业务恢复。</span>
+</footer>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

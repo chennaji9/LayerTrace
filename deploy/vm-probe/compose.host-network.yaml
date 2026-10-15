@@ -1,0 +1,38 @@
+# Linux VM loopback deployment, including an encrypted reverse SSH tunnel API.
+# Use this file last, after both vm-probe/compose.yaml and workload/compose.yaml.
+# Compose v2.24+ supports !reset. No service opens a guest external interface.
+services:
+  docker-proxy:
+    network_mode: host
+    networks: !reset []
+    environment:
+      DOCKER_PROXY_BIND_HOST: 127.0.0.1
+  vm-probe:
+    network_mode: host
+    networks: !reset []
+    ports: !reset []
+    environment:
+      DOCKER_PROXY_URL: http://127.0.0.1:2375
+      PROBE_METRICS_HOST: 127.0.0.1
+  demo-model:
+    network_mode: host
+    networks: !reset []
+    command: ["-m", "/models/qwen2.5-0.5b-instruct-q4_k_m.gguf", "--host", "127.0.0.1", "--port", "8080", "-t", "${MODEL_THREADS:-1}", "-c", "1024", "-np", "1", "-ngl", "0"]
+  demo-tool:
+    network_mode: host
+    networks: !reset []
+    environment:
+      TOOL_BIND_HOST: 127.0.0.1
+  demo-agent:
+    network_mode: host
+    networks: !reset []
+    ports: !reset []
+    environment:
+      AGENT_BIND_HOST: 127.0.0.1
+      LLAMA_URL: http://127.0.0.1:8080
+      TOOL_SERVER_URL: http://127.0.0.1:8090
+  demo-client:
+    network_mode: host
+    networks: !reset []
+    environment:
+      AGENT_URL: http://127.0.0.1:8091

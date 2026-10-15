@@ -1,0 +1,15 @@
+# For a VM populated with docker load from images.tar.
+services:
+  demo-model:
+    image: layertrace-cpu-model:locked
+    pull_policy: never
+  docker-proxy:
+    pull_policy: never
+  vm-probe:
+    pull_policy: never
+  demo-tool:
+    pull_policy: never
+  demo-agent:
+    pull_policy: never
+  demo-client:
+    pull_policy: never

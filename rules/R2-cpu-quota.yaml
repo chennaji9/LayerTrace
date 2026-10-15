@@ -1,0 +1,30 @@
+schema_version: "1.0"
+rule_id: R2
+version: 1.0.2
+title: 容器 CPU 配额瓶颈
+enabled: true
+symptoms:
+  - task.succeeded
+  - task.failed
+window:
+  before_seconds: 120
+  after_seconds: 30
+thresholds:
+  relative_multiplier: 2.0
+  absolute_increase_ms: 500
+  min_baseline_samples: 30
+required_signals:
+  - container_cpu_quota
+  - throttling_delta
+  - latency_baseline
+  - latency_phase_bound_to_symptom_runtime
+relationship_paths:
+  - [container, vm]
+evaluator: r2_cpu_quota
+recommendations:
+  - 上调容器 CPU 配额（quota/period）或限制同 VM 并发
+  - 检查工作负载在峰值时段的 CPU 需求并预留余量
+verification_steps:
+  - 读取 cgroup cpu.stat 的 nr_throttled/nr_periods 增量
+  - 对比窗口内任务延迟与基线 P95 曲线
+  - 核对模型阶段回执的 model_instance_id 与症状容器 runs 实例一致；调用方的依赖阶段总时长不能替代自身执行延迟

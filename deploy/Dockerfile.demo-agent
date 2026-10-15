@@ -1,0 +1,11 @@
+FROM python:3.12.6-slim@sha256:ad48727987b259854d52241fac3bc633574364867b8e20aec305e6e7f4028b26
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN groupadd --gid 10001 layertrace && useradd --uid 10001 --gid layertrace --create-home --shell /usr/sbin/nologin layertrace
+WORKDIR /opt/layertrace
+COPY agents/vm_probe/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY --chown=10001:10001 agents/ agents/
+COPY --chown=10001:10001 workloads/ workloads/
+RUN mkdir -p /var/lib/layertrace-workload /var/lib/layertrace-tool /results && chown -R 10001:10001 /var/lib/layertrace-workload /var/lib/layertrace-tool /results
+USER 10001:10001
+CMD ["python", "-m", "workloads.demo_agent.agent"]

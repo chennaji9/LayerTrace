@@ -1,0 +1,864 @@
+{
+  "schema_version": "1.0",
+  "name": "story-host-pressure",
+  "kind": "replay",
+  "description": "R4b 必需回放：guest steal + 平台侧宿主机压力证据（replayed 来源）",
+  "timeout_seconds": 180,
+  "topology": {
+    "resources": [
+      {
+        "ref": "host",
+        "kind": "host",
+        "provider": "zsvirt",
+        "source_id": "story-hp-host-1",
+        "display_name": "host-1",
+        "provenance": "replayed"
+      },
+      {
+        "ref": "vm",
+        "kind": "vm",
+        "provider": "zsvirt",
+        "source_id": "story-hp-vm-1",
+        "display_name": "vm-1",
+        "provenance": "replayed"
+      },
+      {
+        "ref": "agent",
+        "kind": "container",
+        "provider": "docker",
+        "source_id": "story-hp-container-agent",
+        "display_name": "demo-agent",
+        "provenance": "replayed"
+      },
+      {
+        "ref": "si",
+        "kind": "service_instance",
+        "provider": "otel",
+        "source_id": "story-hp-si",
+        "display_name": "demo-agent 实例",
+        "provenance": "replayed"
+      }
+    ],
+    "relationships": [
+      {
+        "from": "host",
+        "type": "hosts",
+        "to": "vm",
+        "valid_from": "+0s",
+        "provenance": "replayed"
+      },
+      {
+        "from": "vm",
+        "type": "contains",
+        "to": "agent",
+        "valid_from": "+0s",
+        "provenance": "replayed"
+      },
+      {
+        "from": "agent",
+        "type": "runs",
+        "to": "si",
+        "valid_from": "+0s",
+        "provenance": "replayed"
+      }
+    ]
+  },
+  "events": [
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-00",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t00"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+0s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-01",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t01"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+20s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-02",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t02"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+40s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-03",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t03"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+60s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-04",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t04"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+80s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-05",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t05"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+100s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-06",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t06"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+120s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-07",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t07"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+140s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-08",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t08"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+160s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-09",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t09"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+180s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-10",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t10"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+200s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-11",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t11"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+220s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-12",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t12"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+240s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-13",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t13"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+260s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-14",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t14"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+280s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-15",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t15"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+300s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-16",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t16"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+320s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-17",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t17"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+340s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-18",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t18"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+360s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-19",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t19"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+380s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-20",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t20"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+400s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-21",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t21"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+420s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-22",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t22"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+440s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-23",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t23"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+460s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-24",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t24"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+480s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-25",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t25"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+500s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-26",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t26"
+      },
+      "attributes": {
+        "duration_ms": 800
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+520s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-27",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t27"
+      },
+      "attributes": {
+        "duration_ms": 820
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+540s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-28",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t28"
+      },
+      "attributes": {
+        "duration_ms": 840
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+560s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-29",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t29"
+      },
+      "attributes": {
+        "duration_ms": 860
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+580s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-base-30",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t30"
+      },
+      "attributes": {
+        "duration_ms": 780
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+600s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-slow",
+      "event_type": "task.succeeded",
+      "resource_ref": {
+        "namespace": "otel.service_instance",
+        "external_id": "story-hp-si"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "info",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "correlation": {
+        "task_id": "story-hp-t-slow"
+      },
+      "attributes": {
+        "duration_ms": 3200
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+615s"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "event_id": "story-hp-vm-steal",
+      "event_type": "vm.cpu.steal.sample",
+      "resource_ref": {
+        "namespace": "zsvirt.vm",
+        "external_id": "story-hp-vm-1"
+      },
+      "occurred_at": "2026-09-21T00:00:00Z",
+      "observed_at": "2026-09-21T00:00:00Z",
+      "severity": "error",
+      "source": "replay:story-host-pressure",
+      "provenance": "replayed",
+      "attributes": {
+        "steal_percent": 22.5
+      },
+      "scenario": {
+        "name": "story-host-pressure",
+        "offset": "+620s"
+      }
+    }
+  ],
+  "expected_assertions": [
+    {
+      "path": "r4_count",
+      "operator": "greater_than",
+      "expected": 0
+    }
+  ]
+}

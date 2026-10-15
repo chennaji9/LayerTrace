@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}工作负载 · 层迹{% endblock %}
+{% block content %}
+<h1>工作负载</h1>
+<p class="muted">容器状态、资源用量与健康延迟基线；先看采集时效，再解释资源数值。</p>
+{% include "components/page_toolbar.html" %}
+<div class="panel" id="baseline-panel"><h2>健康延迟基线</h2><div class="skeleton"></div></div>
+<div class="panel">
+  <table class="data" id="workload-table">
+    <thead><tr><th>容器</th><th>状态</th><th>数据</th><th>CPU（%）</th><th>工作集</th><th>内存限制</th><th>观测于</th><th>来源</th></tr></thead>
+    <tbody><tr><td colspan="8"><div class="skeleton"></div></td></tr></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const LT = window.LT, esc = LT.esc, target = new URLSearchParams(location.search).get("resource_id");
+  LT.installRefresh(async () => {
+    const data = await LT.api("/api/v1/workloads?limit=200");
+    const first = data.items.find(w => w.id === target) || data.items[0];
+    if (first && first.latency_baseline) {
+      const b = first.latency_baseline;
+      document.getElementById("baseline-panel").innerHTML = '<h2>健康延迟基线</h2><dl class="facts"><dt>状态</dt><dd>' + (b.state === "ready" ? "就绪" : "正常样本不足") + '</dd><dt>窗口与样本</dt><dd>' + b.window_seconds / 60 + ' 分钟 · ' + b.sample_count + ' 个成功任务</dd><dt>P95</dt><dd>' + LT.fmtDuration(b.p95_ms) + '</dd><dt>建议任务超时</dt><dd>' + LT.fmtDuration(b.agent_timeout_ms) + '</dd></dl><p class="muted small">基线不足时显示缺失，不用默认数值替代。</p>';
+    } else document.getElementById("baseline-panel").innerHTML = '<h2>健康延迟基线</h2><p class="muted">暂无工作负载或基线数据。请先确认探针采集并完成正常业务请求。</p>';
+    document.querySelector("#workload-table tbody").innerHTML = data.items.map(w => '<tr class="' + (w.id === target ? "task-selected" : "") + '"><td>' + LT.resourceLink(w.id, w.display_name) + '<div class="mono small">' + esc(w.container_id.slice(0, 12)) + '</div></td><td>' + LT.stateBadge(w.state) + '</td><td>' + LT.dataStateBadge(w.data_state) + '</td><td>' + (w.metrics.cpu_percent == null ? "—" : Number(w.metrics.cpu_percent).toFixed(1)) + '</td><td>' + LT.fmtBytes(w.metrics.memory_working_set_bytes) + '</td><td>' + LT.fmtBytes(w.limits.memory_limit_bytes) + '</td><td>' + LT.fmtTime(w.observed_at) + '</td><td>' + LT.provBadge(w.provenance) + '</td></tr>').join("") || '<tr><td colspan="8">暂无容器；请确认探针正在上报发现数据。</td></tr>';
+  })();
+});
+</script>
+{% endblock %}

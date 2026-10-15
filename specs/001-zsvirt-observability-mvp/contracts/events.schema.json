@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://layertrace.local/schemas/events-1.0.json",
+  "title": "LayerTrace Event Batch 1.0",
+  "type": "object",
+  "x-max-batch-bytes": 8388608,
+  "additionalProperties": false,
+  "required": ["schema_version", "events"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/event" }
+    }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "string",
+      "enum": ["observed", "simulated", "replayed", "inferred", "manual"]
+    },
+    "resourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "external_id"],
+      "properties": {
+        "namespace": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "external_id": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": ["string", "null"], "maxLength": 256 },
+        "trace_id": { "type": ["string", "null"], "pattern": "^[0-9a-fA-F]{32}$" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "x-max-serialized-bytes": 262144,
+      "x-max-attributes-depth": 8,
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "event_id",
+        "event_type",
+        "resource_ref",
+        "occurred_at",
+        "observed_at",
+        "source",
+        "provenance",
+        "attributes"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "event_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "event_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+          "maxLength": 128
+        },
+        "resource_ref": { "$ref": "#/$defs/resourceRef" },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "error", "critical"],
+          "default": "info"
+        },
+        "source": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "correlation": { "$ref": "#/$defs/correlation" },
+        "attributes": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null", "array", "object"]
+          }
+        },
+        "raw_ref": { "type": ["string", "null"], "maxLength": 1024 },
+        "scenario": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["name", "offset"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "offset": { "type": "string", "pattern": "^\\+[0-9]+(ms|s|m)$" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provenance": { "const": "replayed" } } },
+          "then": {
+            "properties": { "scenario": {} },
+            "required": ["scenario"]
+          }
+        }
+      ]
+    }
+  }
+}

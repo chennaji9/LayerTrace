@@ -1,0 +1,22 @@
+# Load the checked offline archive before starting these services.
+# Docker's classic image store may not retain RepoDigests after docker load;
+# these tags point to the exact image/config hashes recorded in its manifest.
+# Always use --pull never and select only the included core services:
+#   docker compose --env-file ../.env -f compose.yaml -f compose.offline.yaml \
+#     up -d --pull never postgres migrate control-plane worker prometheus
+services:
+  postgres:
+    image: postgres:16.4-alpine3.20
+    pull_policy: never
+  control-plane:
+    image: layertrace-control-plane:local
+    pull_policy: never
+  worker:
+    image: layertrace-control-plane:local
+    pull_policy: never
+  migrate:
+    image: layertrace-control-plane:local
+    pull_policy: never
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    pull_policy: never

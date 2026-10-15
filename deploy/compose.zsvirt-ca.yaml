@@ -1,0 +1,19 @@
+# Optional private CA for ZSvirt HTTPS. Omit this overlay for public/trusted CAs.
+# ZSVIRT_CA_DIRECTORY is an existing absolute host directory containing only
+# public CA certificates; make the directory traversable and certificates 0644.
+# Set ZSVIRT_CA_PATH=/etc/layertrace/ca/zsvirt-ca.crt in the protected .env.
+x-zsvirt-ca-volume: &zsvirt-ca-volume
+  type: bind
+  source: ${ZSVIRT_CA_DIRECTORY:?Set the existing host directory containing public ZSvirt CA certificates}
+  target: /etc/layertrace/ca
+  read_only: true
+  bind:
+    create_host_path: false
+
+services:
+  control-plane:
+    volumes:
+      - *zsvirt-ca-volume
+  worker:
+    volumes:
+      - *zsvirt-ca-volume
