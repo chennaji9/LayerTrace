@@ -1,94 +1,178 @@
 # 层迹 LayerTrace
 
-以虚拟机为边界，从失败的 AI 任务出发，用可追溯的证据链区分容器进程异常、模型计算资源瓶颈和工具服务失败。
+**面向虚拟机内 AI 工作负载的跨层可观测诊断工作台。**
 
-控制面与浏览器、VM探针、只读平台适配器、真实CPU模型/Agent/工具/独立客户端、实验与恢复CLI、测试和交付工具均随源码提供。实际验证记录见 `docs/release-evidence.md`，实验环境与能力边界见 `docs/environment-risk.md`。回放、观测、推断和未知状态分别标记。
+一次 AI 任务失败，可能源于容器进程中断、模型计算资源受限，也可能是依赖的工具服务出错。LayerTrace 以虚拟机为边界，把平台资源、容器状态、指标和任务执行事件关联起来，帮助使用者从失败任务定位相关资源，查看诊断依据，并确认业务是否恢复。
 
-项目仓库：[github.com/chennaji9/LayerTrace](https://github.com/chennaji9/LayerTrace)。GitHub 仅提供源码、部署配置和项目说明。视频、音轨、字幕、PDF、实测材料、模型与离线镜像保存在本地交付包。
+每条诊断都保留支持证据、反证、缺失信息和修订记录。页面区分观测、推断、回放与模拟来源，也展示采集陈旧、失联和身份待解析状态。
 
-## 源码范围与环境要求
+## 核心功能
 
-本仓库包含控制面与 Web UI、VM 探针、ZSvirt 只读适配器、AI 演示工作负载、诊断规则、实验与恢复 CLI、数据库迁移、测试、配置模板、部署脚本和许可证。运行配置由部署脚本在本机生成；模型权重按清单单独下载。
+| 功能 | 说明 |
+|---|---|
+| 跨层资源拓扑 | 关联宿主机、虚拟机、容器、服务实例及依赖关系，支持按故障发生时间查看历史拓扑。 |
+| AI 任务追踪 | 用任务 ID 串联独立客户端、Agent、模型和 HTTP 工具，查看执行状态、分段耗时、错误及关联事件。 |
+| 容器观测 | VM 探针采集容器库存、生命周期事件、CPU、内存、配额与节流指标，通过只读 Docker 代理访问容器信息。 |
+| 证据驱动诊断 | 按资源身份、实例代次、任务及时间窗口关联事实，输出支持级别、判定值、证据引用与缺失项。 |
+| 事件单管理 | 将相关告警聚合为事件单，支持确认、静默和恢复跟踪；恢复判断结合业务成功、数据源新鲜度与稳定窗口。 |
+| 数据源状态 | 展示平台、探针和指标源的连接状态、最近采集时间、积压、丢弃及数据缺口。 |
+| 可控故障实验 | 提供进程中断、模型 CPU 配额和工具 HTTP 503 场景，保存原配置并通过独立 watchdog 执行到期恢复。 |
 
-建议使用 Linux x86_64、Python 3.12、Docker 与 Compose 插件；CPU 模型推理需要支持 AVX2。ZSvirt 平台、业务 VM、模型权重和运行凭据需要自行准备。验证环境与支持边界见 [环境说明](docs/environment-risk.md)，完整操作见 [UI 指南](docs/ui-operation-guide.md)。文档中的本机实验路径与历史记录 ID 用于说明已保存的实验，首次部署以本 README 的命令和自己环境的配置为准。
+Web 工作台包含总览、拓扑、工作负载、任务、事件单、诊断、状态和实验页面，支持桌面与移动端布局。
 
-## 从源码部署控制面
+## 系统架构
 
-Linux x86_64、Python3.12、Docker与Compose插件。源码的直接Python版本及镜像摘要固定；内层CPU推理需要兼容AVX2的宿主/VMCPU。控制面配置默认prod，关闭lab。
+```mermaid
+flowchart TB
+    ZS[ZSvirt 只读 API] -->|宿主机、VM、告警与事件| W[Worker]
 
-```bash
-python3 scripts/configure_local_env.py --path .env --mode prod
-docker compose --env-file .env -f deploy/compose.yaml up -d --build postgres migrate control-plane worker prometheus
+    subgraph VM[业务虚拟机]
+        C[独立客户端] --> A[Agent]
+        A --> M[CPU 模型]
+        A --> T[HTTP 工具]
+        D[Docker] --> R[只读代理] --> P[VM 探针]
+    end
+
+    P -->|库存与事件| API[FastAPI 控制面]
+    C -->|任务事件| API
+    A -->|执行分段| API
+    P -->|数值指标| PROM[Prometheus]
+    API --> DB[(PostgreSQL)]
+    DB --> W
+    PROM --> W
+    W -->|关联、诊断与恢复状态| DB
+    DB --> API
+    API --> UI[Web 工作台与 REST API]
 ```
 
-脚本生成随机数据库口令、API令牌和注册秘密，配置文件mode600，已有文件拒绝覆盖。所有API读取均需认证；浏览器使用登录表单，机器客户端使用Bearer令牌。HTTPS、CA和跨主机部署见 `deploy/caddy/README.md`，只监听loopback的HTTP实验链路可通过已认证SSH端口转发连接。
+控制面与 worker 独立运行，共享 PostgreSQL 中的资源、事件、任务和诊断记录；Prometheus 保存数值时序。探针使用持久 SQLite outbox 缓存待上报事件，收到整批确认后删除，断线后按原事件 ID 补传。队列具有容量与时间上限，超限会记录丢弃和数据缺口。
 
-## 离线控制面部署
+资源关联使用平台 VM UUID、完整容器 ID 和容器启动时间，资源关系记录有效期。容器重建、同名资源或迟到事件按对应身份与时间处理。设计与接口详情见 [架构、数据与公开接口](docs/architecture-and-api.md)。
 
-先解压源码、独立镜像包与交付资产清单。导入前核验SHA256；导入脚本按清单再次检查镜像身份。
+## 诊断方式
+
+LayerTrace 使用可解释规则对关联证据进行判断：
+
+| 场景 | 主要判定依据 |
+|---|---|
+| 容器进程异常退出 | 容器退出事实、实例身份，以及相关任务的中断或失败。 |
+| 内存不足（OOM） | 直接 OOM 证据及资源关联；单独的退出码 137 不足以判定 OOM。 |
+| 模型计算资源瓶颈 | 同模型实例的 CPU 配额、节流、任务延迟及健康基线。 |
+| 工具服务失败 | 同一任务中的工具失败与业务失败事件。 |
+| 宿主机资源争用 | 对应宿主机的直接资源证据及受影响依赖关系。 |
+
+模型资源瓶颈规则需要至少 30 个健康成功样本，以任务内累计模型耗时的 P95 为基线，同时核对配额与节流。延迟须严格超过基线两倍，且绝对增加超过 500 ms。证据不足时保留缺失项，新的事实到达后生成诊断修订。
+
+当前硬件验证覆盖 CPU 模型、进程中断、CPU 配额和工具失败链路；业务 OOM 正例、宿主机争用及真实 GPU/vGPU 的完整故障诊断仍需进一步验证。ZSvirt 适配器接入宿主机、VM 和原生告警/事件，平台利用率、平台 quota 与 GPU 进程映射尚未接入。
+
+## 快速开始
+
+### 环境要求
+
+- Linux x86_64，Python 3.12，Docker Engine 与 Compose v2。
+- 运行示例 CPU 模型时，宿主机与业务 VM 需支持 AVX2。
+- 接入真实平台时，准备 ZSvirt 只读账户和可运行 Docker 的 Linux 业务 VM。
+- 模型权重由下载脚本按固定 SHA-256 校验，模型信息见 [模型清单](deploy/models/manifest.yaml)。
+
+### 1. 启动控制面
 
 ```bash
-python3 scripts/load_offline_images.py \
-  --archive ../LayerTrace-offline-images/offline-images/layertrace-control-plane-images.tar \
-  --manifest ../LayerTrace-offline-images/offline-images/manifests/cp-images-manifest.json
+git clone https://github.com/chennaji9/LayerTrace.git
+cd LayerTrace
+
 python3 scripts/configure_local_env.py --path .env --mode prod
-docker compose --env-file .env -f deploy/compose.yaml -f deploy/compose.offline.yaml -f deploy/compose.final-images.yaml up -d --no-build --pull never postgres migrate control-plane worker prometheus
-```
-
-以上命令从解压后的 `LayerTrace-source` 目录执行，独立镜像归档解压到同级 `LayerTrace-offline-images`。导入脚本先检查 tar 的大小与SHA256，再核验具名tag对应的image/config身份。精确控制面清单随镜像包位于 `offline-images/manifests/`，推理许可位于 `offline-images/licenses/`；模型包的原始许可位于 `models/licenses/`。固定核心镜像涵盖PostgreSQL16.4、Prometheus3.5.0及最终控制面。可选Grafana、Tempo、Caddy等未包含在核心离线镜像归档中，需按各自许可证和固定摘要另行准备。
-
-## ZSvirt只读接入
-
-配置 `ZSVIRT_ENABLED=true`、真实URL、只读账户名及受保护的SHA512口令摘要；可使用初始OAuth token。适配器支持会话失效的有界重登录，未配置或权限不足如实显示状态。真实四个查询接口和Normal账户权限机制见 `docs/zsvirt-readonly.md`；平台写请求已核验拒绝。当前支持host/VM和原生告警/事件，不声称GPU映射、平台利用率或quota API已接入。
-
-ZSvirt使用私有CA时，在宿主准备一个只包含公共CA证书的目录，目录权限0755、证书权限0644，供非root控制面和worker读取。在受保护的`.env`中填写宿主绝对目录 `ZSVIRT_CA_DIRECTORY=/absolute/host/zsvirt-ca` 和容器路径 `ZSVIRT_CA_PATH=/etc/layertrace/ca/zsvirt-ca.crt`，将CA证书置于该宿主目录的 `zsvirt-ca.crt`，然后追加可选覆盖文件：
-
-```bash
 docker compose --env-file .env -f deploy/compose.yaml \
-  -f deploy/compose.zsvirt-ca.yaml up -d control-plane worker
+  up -d --build postgres migrate control-plane worker prometheus
 ```
 
-离线部署同时追加 `-f deploy/compose.offline.yaml` 和 `-f deploy/compose.final-images.yaml`，并使用 `--no-build --pull never`。证书目录不得放入私钥；挂载为只读，宿主目录缺失会拒绝启动。使用系统信任的CA时，留空 `ZSVIRT_CA_PATH` 并省略此覆盖文件。
+配置脚本生成随机数据库密码、API 令牌和探针注册密钥，将 `.env` 权限设为 `0600`，并拒绝覆盖已有文件。默认使用 `prod` 模式，实验写入通道关闭。
 
-## VM探针和CPU AI业务
+启动后访问 [http://127.0.0.1:8000](http://127.0.0.1:8000)，在登录表单中输入 `.env` 的 `API_TOKENS` 值。机器客户端使用 Bearer 令牌调用 API，接口契约由运行服务的 `/openapi.json` 提供。
 
-将源码部署到 `/opt/layertrace`，将单独模型归档中的GGUF及许可置于 `/opt/layertrace-models`。导入探针/模型归档 `layertrace-vm-images.tar`、Agent/工具归档 `layertrace-workload-image.tar` 和独立客户端归档 `layertrace-client-image.tar`，探针和工作负载按[离线镜像导入说明](docs/offline-images.md)核验；客户端按[独立镜像说明](docs/client-image.md)核验并导入。参考 `deploy/vm-probe/env.example` 创建mode600的 `workload.env`，填真实VMUUID、持久installationID、控制面地址和凭证。模型文件、SHA256、来源、许可和推理版本见 `deploy/models/manifest.yaml`。
+控制面默认只将 HTTP 端口绑定到回环地址。跨主机部署使用 HTTPS 或经过认证的 SSH 隧道，配置见 [HTTPS 与证书](deploy/caddy/README.md)。完成数据源配置后，工作台才会显示相应资源与任务。
 
-通用HTTPS网络部署可使用 `sudo bash deploy/vm-probe/install.sh /opt/layertrace/workload.env`。本机SSH隧道/host-network离线实验采用如下六份配置：
+### 2. 接入 ZSvirt
+
+在受保护的 `.env` 中设置以下字段，然后重新创建控制面与 worker：
+
+| 配置项 | 用途 |
+|---|---|
+| `ZSVIRT_ENABLED=true` | 启用平台同步。 |
+| `ZSVIRT_BASE_URL` | 平台 API 地址。 |
+| `ZSVIRT_ACCOUNT_NAME` | 只读账户名。 |
+| `ZSVIRT_PASSWORD_HASH` | 账户密码的 SHA-512 摘要，按凭据保护。 |
+| `ZSVIRT_TOKEN` | 可选的初始会话令牌；仅配置令牌时，到期需人工更换。 |
+
+```bash
+docker compose --env-file .env -f deploy/compose.yaml up -d control-plane worker
+```
+
+账户应具备宿主机、VM、原生告警和事件的查询权限。私有 CA、权限配置及会话续期方式见 [ZSvirt 只读接入](docs/zsvirt-readonly.md)；私有 CA 的容器挂载使用 `deploy/compose.zsvirt-ca.yaml`。
+
+### 3. 部署 VM 探针与示例业务
+
+在业务 VM 中将源码放到 `/opt/layertrace`，执行：
 
 ```bash
 cd /opt/layertrace
-sudo docker compose --project-name layertrace-vm --env-file workload.env \
-  -f deploy/vm-probe/compose.yaml -f deploy/workload/compose.yaml \
-  -f deploy/vm-probe/compose.host-network.yaml -f deploy/workload/compose.offline.yaml \
-  -f deploy/workload/compose.client-fixed.yaml -f deploy/vm-probe/compose.final-images.yaml \
-  up -d --no-build --pull never docker-proxy vm-probe demo-model demo-tool demo-agent
+sudo bash deploy/workload/fetch-model.sh /opt/layertrace-assets
+cp deploy/vm-probe/env.example workload.env
+chmod 600 workload.env
 ```
 
-探针走受限只读Docker代理，导出9108数值指标，事件/库存经认证API与worker处理。业务使用本地llama.cpp/Qwen模型、真实HTTP工具和独立客户端。提示词与生成正文留在业务结果文件，遥测只记录必要身份、状态和分段耗时。
-
-## 真实实验与UI
-
-[UI 操作指南](docs/ui-operation-guide.md)提供完整终端与页面步骤，[视频口播稿](docs/video-narration.md)提供4分30秒口播和镜头表。正常基线需要同一依赖路径至少30个成功任务；超时不计成功。R2要求同一模型资源的真实配额与节流，健康基线采用任务内模型累计耗时（initial 与 synthesis 累计）的P95。当前任务的模型累计耗时或单个闭合模型阶段的真实 duration_ms，可逐条作该累计量的保守下界比较；不跨阶段或任务求和。关联窗口为150秒，延迟须严格超过健康P95两倍且增加超过500ms；证据不足保持不足。
+编辑 `workload.env`，填写真实 VM UUID、持久安装 UUID、控制面地址、注册密钥和项目 API 令牌，并核对模型目录与 CA 配置。使用系统信任的证书时，将 `LAYERTRACE_CA_FILE` 留空；私有 CA 需配置实际证书目录与容器内路径。配置完成后启动：
 
 ```bash
-cd /opt/layertrace
-sudo python3 -m scenarios.real_lab run cpu-quota --target FULL_MODEL_CONTAINER_ID --seconds 180 --cpus 0.1
-sudo python3 -m scenarios.real_lab run process-failure --target FULL_AGENT_CONTAINER_ID --seconds 45
-sudo python3 -m scenarios.real_lab run tool-503 --target FULL_TOOL_CONTAINER_ID --seconds 45
-sudo python3 -m scenarios.real_lab restore --state /absolute/path/to/state.json
+sudo bash deploy/vm-probe/install.sh /opt/layertrace/workload.env
 ```
 
-仅带 `layertrace.lab=true` 的对应服务容器可注入，最长180秒；保存完整ID与原配置、独立watchdog负责到期恢复，恢复后验证新业务任务。进程SIGKILL的退出137不冒称OOM。确认和静默保留事实，事件单恢复需要业务证据、来源新鲜与稳定窗口（正式默认60秒；本机演示15秒）。
+安装脚本在同一 Compose 项目中启动探针、只读 Docker 代理、CPU 模型、Agent、工具和独立客户端。模型使用 llama.cpp 与 Qwen2.5-0.5B-Instruct，Agent 执行模型推理、工具调用及结果汇总。提示词与生成正文保留在业务结果中，遥测记录必要身份、状态、错误类型与耗时。
 
-## 验证与交付
+探针在 9108 端口提供指标，默认监听 VM 回环地址。按实际网络配置 Prometheus 抓取目标，见 [VM 探针与业务部署](deploy/vm-probe/README.md) 和 [Prometheus 静态发现](deploy/prometheus/targets/README.md)。已有离线镜像归档时，可按 [离线镜像说明](docs/offline-images.md) 导入并核验。
 
-测试使用独立数据库，不能对正在使用的交付数据库运行清表夹具。核心契约、单元、集成、安全及反例测试见 `docs/test-report.md`；真实PostgreSQL16.4空库冷启动可用 `scripts/cold_smoke.py` 复验。浏览器验收使用普通会话并覆盖页面导航、证据、确认与静默。
+## 使用流程
 
-`scripts/package_release.py create` 生成源码ZIP、可导入Git bundle、材料ZIP和独立模型/镜像归档；`verify` 检查路径、成员及SHA256，扫描本机已知秘密和残留占位。源包排除env、私钥、运行状态、qcow2、依赖环境、缓存与旧规划材料。交付目录和外部仓库/视频链接要求见 `docs/assets-delivery-index.md`。逐项核对见 [提交清单](docs/submission-checklist.md)。材料包 `LayerTrace-materials/evidence/ui-final/voiced-media-qa.json` 记录媒体完成状态及截图、PDF、视频、快捷表各 manifest 的实际 SHA256；`evidence-summary.json` 中的 `media_ready` / `media_remaining` 属于实验验收事实快照，媒体完成状态由该独立 QA 记录给出。`release-manifest.json` 的仓库、视频与邮件布尔字段是本地打包时的状态快照，后续对外发布以独立发布记录和实际访问链接核验。本机演示控制面使用 `MODE=lab`、15秒稳定恢复窗口和3600秒基线窗口；交付默认配置为 `MODE=prod`，实验功能默认关闭。
+1. 在“状态”检查平台、探针和指标源的连接、采集时间及身份解析情况。
+2. 在“拓扑”确认宿主机、VM、容器和服务依赖的关联。
+3. 在“任务”查看成功与失败任务，检查模型、工具分段及关联事件单。
+4. 打开事件单的诊断，查看支持证据、反证、缺失项、判定阈值和历史修订。
+5. 结合故障时刻拓扑判断影响范围，按需确认或静默事件单，并跟踪新任务与稳定恢复状态。
 
-卸载入口 `deploy/uninstall.sh` / `scripts/uninstall.py` 先停止采集、撤销并验证旧探针凭证拒绝，再移除指定组件，默认保留数据。永久清理需明确卷清单与确认，见 `docs/permissions.md`。
+需要运行故障实验时，在业务 VM 中使用 `python3 -m scenarios.real_lab`。CLI 仅对具有 `layertrace.lab=true` 且服务类型匹配的容器执行操作，保存完整目标 ID 与原配置，实验最长 180 秒。命令及恢复方式见 [VM 部署说明中的真实实验](deploy/vm-probe/README.md)。
+
+## 开发与项目结构
+
+```text
+apps/control_plane/   控制面 API、Web UI、worker、诊断与数据模型
+agents/vm_probe/       VM 探针、Docker 代理、指标与离线队列
+integrations/          ZSvirt 只读适配器与场景回放
+packages/contracts/   公共数据契约
+workloads/            CPU 模型、Agent、工具与独立客户端
+rules/                诊断规则
+scenarios/            真实故障实验与恢复 CLI
+deploy/               Compose、镜像构建与安装配置
+scripts/              配置、迁移检查与运维工具
+tests/                契约、单元、集成、场景、安全与浏览器测试
+docs/                 架构、部署与运维文档
+```
+
+安装开发依赖并运行单元测试：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+python -m pytest tests/unit -q
+```
+
+集成测试使用独立 PostgreSQL 测试库，测试夹具会清空其中的数据；通过 `LAYERTRACE_TEST_DATABASE_URL` 指定测试库，或由夹具使用 Docker 创建临时实例。
+
+## 安全与运维
+
+探针通过受限只读代理采集 Docker 信息，以非 root 用户运行；探针凭据绑定 VM 和项目，支持过期与撤销。浏览器使用签名会话及 CSRF 校验，遥测在上报与入库时执行正文排除和敏感字段过滤。详细机制见 [安全说明](docs/security.md)。
+
+卸载使用 `deploy/uninstall.sh`，先撤销探针凭据，再停止指定组件，默认保留数据。组件权限、凭据与数据清理方式见 [权限与运维说明](docs/permissions.md)。
 
 ## 许可证
 
-项目Apache-2.0。第三方说明见 `THIRD_PARTY_NOTICES.md`；模型Apache-2.0、llama.cpp MIT，原始上游许可随独立资产保留。源码、完整可运行代码仓库链接、作品介绍PDF和3–5分钟视频链接分别按比赛通知准备；截止为2026-10-17 00:00，Asia/Shanghai。
+LayerTrace 使用 [Apache License 2.0](LICENSE)。第三方组件、模型与推理引擎的许可及来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
